@@ -102,3 +102,44 @@ class IndexViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIsNotNone(response.context)
         assert_sound_queryset_equal(self, response.context['sound_list'], sounds)
+
+
+class RandomViewTests(TestCase):
+    def test_random_json_with_no_sounds(self):
+        """
+        Random view must 404 when no sounds are present
+        """
+        response = self.client.get(reverse('sounds:random'))
+        self.assertEqual(response.status_code, 404)
+
+    def test_random_json_view_single_sound(self):
+        """
+        Random JSON must return a single random sound via JSON response
+        """
+        new_sound = Sound.objects.create(uuid='41f94400-2a3e-408a-9b80-1774724f62af', duration=123)
+        response = self.client.get(reverse('sounds:random', args=['json']))
+        self.assertEqual(response.status_code, 200)
+        json_data = response.json()
+        self.assertDictEqual(json_data, {'uuid': new_sound.uuid, 'duration': new_sound.duration})
+
+    def test_random_default_view_single_sound(self):
+        """
+        Random must return a single random via HTML response
+        """
+        new_sound = Sound.objects.create(uuid='41f94400-2a3e-408a-9b80-1774724f62af', duration=123)
+        response = self.client.get(reverse('sounds:random'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['sound'], new_sound)
+        self.assertContains(response, new_sound.uuid)
+        self.assertContains(response, new_sound.duration)
+
+    def test_random_html_view_single_sound(self):
+        """
+        Random HTML must return a single random via HTML response
+        """
+        new_sound = Sound.objects.create(uuid='41f94400-2a3e-408a-9b80-1774724f62af', duration=123)
+        response = self.client.get(reverse('sounds:random', args=['html']))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['sound'], new_sound)
+        self.assertContains(response, new_sound.uuid)
+        self.assertContains(response, new_sound.duration)
