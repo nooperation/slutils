@@ -8,5 +8,5 @@ class Sound(models.Model):
     uuid = models.CharField( max_length=36, unique=True, validators=[RegexValidator(
         regex='^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$', message='Invalid UUID', code = 'invalid_uuid')
     ])
-    duration = models.IntegerField()
+    duration = models.PositiveIntegerField()
     created_on = models.DateTimeField(auto_now=True)
