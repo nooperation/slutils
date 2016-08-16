@@ -12,21 +12,24 @@ class IndexView(generic.ListView):
         return Sound.objects.all()
 
 
-def random_view(request):
-    sounds = Sound.objects.all()
-    num_sounds = len(sounds)
-    if num_sounds == 0:
-        raise Http404("No sounds available")
+class RandomView(generic.View):
+    def get(self, request):
+        sounds = Sound.objects.all()
+        num_sounds = len(sounds)
+        if num_sounds == 0:
+            raise Http404("No sounds available")
 
-    random_index = randint(0, num_sounds - 1)
-    random_sound = sounds[random_index]
+        random_index = randint(0, num_sounds - 1)
+        random_sound = sounds[random_index]
 
-    return JsonResponse({'uuid': random_sound.uuid, 'duration': random_sound.duration})
-
-
-def all_view(request):
-    raise Http404("Not implemented")
+        return JsonResponse({'uuid': random_sound.uuid, 'duration': random_sound.duration})
 
 
-def update_view(request):
-    return HttpResponse("Update")
+class AllView(generic.View):
+    def get(self, request):
+        raise Http404("Not implemented")
+
+
+class UpdateView(generic.View):
+    def get(self, request):
+        return HttpResponse("Update")
