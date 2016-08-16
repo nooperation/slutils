@@ -12,23 +12,21 @@ class IndexView(generic.ListView):
         return Sound.objects.all()
 
 
-def random(request, request_type):
+def random_view(request):
     sounds = Sound.objects.all()
     num_sounds = len(sounds)
     if num_sounds == 0:
-        raise Http404("No sounds")
+        raise Http404("No sounds available")
+
     random_index = randint(0, num_sounds - 1)
     random_sound = sounds[random_index]
 
-    if request_type is None or request_type == 'html':
-        return render(request, 'sounds/random.html', context={
-            'sound': random_sound
-        })
-    elif request_type == 'json':
-        return JsonResponse({'uuid': random_sound.uuid, 'duration': random_sound.duration})
-    else:
-        raise Http404("Invalid format")
+    return JsonResponse({'uuid': random_sound.uuid, 'duration': random_sound.duration})
 
 
-def update(request):
+def all_view(request):
+    raise Http404("Not implemented")
+
+
+def update_view(request):
     return HttpResponse("Update")

@@ -3,7 +3,8 @@ from django.db import IntegrityError
 from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
 from .models import Sound
-
+from unittest.mock import Mock
+import random
 
 def create_test_sounds():
     valid_uuids = [
@@ -104,57 +105,93 @@ class IndexViewTests(TestCase):
         assert_sound_queryset_equal(self, response.context['sound_list'], sounds)
 
 
+class AllViewTests(TestCase):
+
+    def test_all_view_with_no_sounds(self):
+        """
+        All view must 404 when no sounds are present.
+        """
+        response = self.client.get(reverse('sounds:all_json'))
+        self.assertEqual(response.status_code, 404)
+
+    def test_all_view_with_multiple_sounds(self):
+        """
+        All view must 404 when no sounds are present.
+        """
+        sounds = create_test_sounds()
+        json_sounds = []
+
+        for sound in sounds:
+            json_sounds.append({'uuid': sound.uuid, 'duration': sound.duration})
+        expected_json = {'sounds': json_sounds}
+
+        response = self.client.get(reverse('sounds:all_json'))
+        self.assertEqual(response.status_code, 200)
+        json_data = response.json()
+        self.assertDictEqual(json_data, expected_json)
+
+
 class RandomViewTests(TestCase):
-    def test_random_view_with_no_sounds_default(self):
+
+    def test_random_view_with_no_sounds(self):
         """
         Random view must 404 when no sounds are present.
         """
-        response = self.client.get(reverse('sounds:random'))
+        response = self.client.get(reverse('sounds:random_json'))
         self.assertEqual(response.status_code, 404)
 
-    def test_random_view_with_no_sounds_html(self):
-        """
-        Random view must 404 when no sounds are present. Explicit request for html result.
-        """
-        response = self.client.get(reverse('sounds:random', args=['html']))
-
-        self.assertEqual(response.status_code, 404)
-
-    def test_random_view_with_no_sounds_json(self):
-        """
-        Random view must 404 when no sounds are present. Explicit request for json result.
-        """
-        response = self.client.get(reverse('sounds:random', args=['json']))
-        self.assertEqual(response.status_code, 404)
-        
-    def test_random_view_with_single_sound_default(self):
-        """
-        Random must return a single random when database is populated.
-        """
-        new_sound = Sound.objects.create(uuid='41f94400-2a3e-408a-9b80-1774724f62af', duration=123)
-        response = self.client.get(reverse('sounds:random'))
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context['sound'], new_sound)
-        self.assertContains(response, new_sound.uuid)
-        self.assertContains(response, new_sound.duration)
-
-    def test_random_view_with_single_sound_html(self):
-        """
-        Random HTML must return a single random via HTML response
-        """
-        new_sound = Sound.objects.create(uuid='41f94400-2a3e-408a-9b80-1774724f62af', duration=123)
-        response = self.client.get(reverse('sounds:random', args=['html']))
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context['sound'], new_sound)
-        self.assertContains(response, new_sound.uuid)
-        self.assertContains(response, new_sound.duration)
-
-    def test_random_view_with_single_sound_json(self):
+    def test_random_view_with_single_sound(self):
         """
         Random JSON must return a single random sound via JSON response
         """
         new_sound = Sound.objects.create(uuid='41f94400-2a3e-408a-9b80-1774724f62af', duration=123)
-        response = self.client.get(reverse('sounds:random', args=['json']))
+        response = self.client.get(reverse('sounds:random_json'))
         self.assertEqual(response.status_code, 200)
         json_data = response.json()
         self.assertDictEqual(json_data, {'uuid': new_sound.uuid, 'duration': new_sound.duration})
+
+    def test_random_view_min_duration(self):
+        """
+        Random view must 404 when no sounds are present or a random sound with the minimum specified duration
+        """
+        new_sound = Sound.objects.create(uuid='a7488bf2-fef3-4846-a898-fc60dea73dbb', duration=10)
+
+        response = self.client.get(reverse('sounds:random_json'), {'min_duration': 11})
+        self.assertEqual(response.status_code, 404)
+
+        response = self.client.get(reverse('sounds:random_json'), {'min_duration': 10})
+        self.assertEqual(response.status_code, 200)
+        self.assertDictEqual(response, {'uuid': new_sound.uuid, 'duration': new_sound.duration})
+
+    def test_random_view_max_duration(self):
+        """
+        Random view must 404 when no sounds are present or a random sound with the maximum specified duration
+        """
+        new_sound = Sound.objects.create(uuid='a7488bf2-fef3-4846-a898-fc60dea73dbb', duration=10)
+
+        response = self.client.get(reverse('sounds:random_json'), {'max_duration': 9})
+        self.assertEqual(response.status_code, 404)
+
+        response = self.client.get(reverse('sounds:random_json'), {'max_duration': 10})
+        self.assertEqual(response.status_code, 200)
+        self.assertDictEqual(response, {'uuid': new_sound.uuid, 'duration': new_sound.duration})
+
+    def test_random_view_min_max_duration(self):
+        """
+        Random view must 404 when no sounds are present in the specified range or return a random sound in the specified range
+        """
+        new_sound = Sound.objects.create(uuid='a7488bf2-fef3-4846-a898-fc60dea73dbb', duration=10)
+
+        response = self.client.get(reverse('sounds:random_json'), {'min_duration': 11, 'max_duration': 12})
+        self.assertEqual(response.status_code, 404)
+
+        response = self.client.get(reverse('sounds:random_json'), {'min_duration': 8, 'max_duration': 9})
+        self.assertEqual(response.status_code, 404)
+
+        response = self.client.get(reverse('sounds:random_json'), {'min_duration': 10, 'max_duration': 10})
+        self.assertEqual(response.status_code, 200)
+        self.assertDictEqual(response, {'uuid': new_sound.uuid, 'duration': new_sound.duration})
+
+        response = self.client.get(reverse('sounds:random_json'), {'min_duration': 9, 'max_duration': 11})
+        self.assertEqual(response.status_code, 200)
+        self.assertDictEqual(response, {'uuid': new_sound.uuid, 'duration': new_sound.duration})
