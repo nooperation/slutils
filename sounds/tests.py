@@ -100,6 +100,7 @@ class IndexViewTests(TestCase):
         """
         sounds = create_test_sounds()
         response = self.client.get(reverse('sounds:index'))
+
         self.assertEqual(response.status_code, 200)
         self.assertIsNotNone(response.context)
         assert_sound_queryset_equal(self, response.context['sound_list'], sounds)
@@ -161,7 +162,8 @@ class RandomViewTests(TestCase):
 
         response = self.client.get(reverse('sounds:random_json'), {'min_duration': 10})
         self.assertEqual(response.status_code, 200)
-        self.assertDictEqual(response, {'uuid': new_sound.uuid, 'duration': new_sound.duration})
+        json_data = response.json()
+        self.assertDictEqual(json_data, {'uuid': new_sound.uuid, 'duration': new_sound.duration})
 
     def test_random_view_max_duration(self):
         """
@@ -174,7 +176,8 @@ class RandomViewTests(TestCase):
 
         response = self.client.get(reverse('sounds:random_json'), {'max_duration': 10})
         self.assertEqual(response.status_code, 200)
-        self.assertDictEqual(response, {'uuid': new_sound.uuid, 'duration': new_sound.duration})
+        json_data = response.json()
+        self.assertDictEqual(json_data, {'uuid': new_sound.uuid, 'duration': new_sound.duration})
 
     def test_random_view_min_max_duration(self):
         """
@@ -190,8 +193,10 @@ class RandomViewTests(TestCase):
 
         response = self.client.get(reverse('sounds:random_json'), {'min_duration': 10, 'max_duration': 10})
         self.assertEqual(response.status_code, 200)
-        self.assertDictEqual(response, {'uuid': new_sound.uuid, 'duration': new_sound.duration})
+        json_data = response.json()
+        self.assertDictEqual(json_data, {'uuid': new_sound.uuid, 'duration': new_sound.duration})
 
         response = self.client.get(reverse('sounds:random_json'), {'min_duration': 9, 'max_duration': 11})
         self.assertEqual(response.status_code, 200)
-        self.assertDictEqual(response, {'uuid': new_sound.uuid, 'duration': new_sound.duration})
+        json_data = response.json()
+        self.assertDictEqual(json_data, {'uuid': new_sound.uuid, 'duration': new_sound.duration})
