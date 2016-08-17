@@ -3,8 +3,6 @@ from django.db import IntegrityError
 from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
 from .models import Sound
-from unittest.mock import Mock
-import random
 
 def create_test_sounds():
     valid_uuids = [
