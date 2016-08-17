@@ -113,7 +113,9 @@ class AllViewTests(TestCase):
         All view must 404 when no sounds are present.
         """
         response = self.client.get(reverse('sounds:all_json'))
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 200)
+        json_data = response.json()
+        self.assertDictEqual(json_data, {'sounds': []})
 
     def test_all_view_with_multiple_sounds(self):
         """
@@ -200,3 +202,26 @@ class RandomViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         json_data = response.json()
         self.assertDictEqual(json_data, {'uuid': new_sound.uuid, 'duration': new_sound.duration})
+
+    def test_random_view_bad_duration(self):
+        """
+        Random view must 404 on invalid input
+        """
+        # TODO: Stop using 404 for everything...
+        response = self.client.get(reverse('sounds:random_json'), {'min_duration': None, 'max_duration': None})
+        self.assertEqual(response.status_code, 404)
+
+        response = self.client.get(reverse('sounds:random_json'), {'min_duration': None})
+        self.assertEqual(response.status_code, 404)
+
+        response = self.client.get(reverse('sounds:random_json'), {'max_duration': None})
+        self.assertEqual(response.status_code, 404)
+
+        response = self.client.get(reverse('sounds:random_json'), {'min_duration': 'foobar', 'max_duration': 'baz'})
+        self.assertEqual(response.status_code, 404)
+
+        response = self.client.get(reverse('sounds:random_json'), {'min_duration': 'foobar'})
+        self.assertEqual(response.status_code, 404)
+
+        response = self.client.get(reverse('sounds:random_json'), {'max_duration': 'baz'})
+        self.assertEqual(response.status_code, 404)
