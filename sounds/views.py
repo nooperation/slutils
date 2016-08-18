@@ -1,10 +1,9 @@
-from django.shortcuts import render
-from django.http import HttpResponse, Http404, JsonResponse
+from django.db import IntegrityError
+from django.http import Http404, JsonResponse
 from django.views import generic
 from .models import Sound
 from random import randint
-from django.shortcuts import render
-# Create your views here.
+import json
 
 
 class IndexView(generic.ListView):
@@ -60,5 +59,19 @@ class AllJsonView(generic.View):
 
 
 class ImportJsonView(generic.View):
-    def get(self, request):
-        return HttpResponse("Update")
+    def post(self, request):
+        num_imported = 0
+        try:
+            json_data = json.loads(request.body.decode("utf-8"))
+            for sound in json_data['sounds']:
+                if Sound.objects.filter(uuid=sound['uuid']).count() == 0:
+                    new_sound = Sound(uuid=sound['uuid'], duration=sound['duration'], created_on=sound['created_on'])
+                    new_sound.full_clean()
+                    new_sound.save()
+                    num_imported += 1
+        except IntegrityError:
+            raise Http404("Integrity Error")
+        except:
+            raise Http404("Failed to import sounds")
+
+        return JsonResponse({'num_imported': num_imported})

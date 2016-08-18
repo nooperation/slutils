@@ -3,6 +3,8 @@ from django.db import IntegrityError
 from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
 from .models import Sound
+import json
+
 
 def create_test_sounds():
     valid_uuids = [
@@ -21,7 +23,7 @@ def create_test_sounds():
     sounds = []
     duration = 1
     for valid_uuid in valid_uuids:
-        sounds.append(Sound.objects.create(uuid=valid_uuid, duration=duration))
+        sounds.append(Sound.objects.create(uuid=valid_uuid, duration=duration, created_on='2016-08-17 20:49:53.123456+08:00'))
         duration <<= 1
     return sounds
 
@@ -48,7 +50,7 @@ class SoundModelTests(TestCase):
         """
         The UUID field must be unique
         """
-        new_sound = Sound.objects.create(uuid='41f94400-2a3e-408a-9b80-1774724f62af', duration=123)
+        new_sound = Sound.objects.create(uuid='41f94400-2a3e-408a-9b80-1774724f62af', duration=123, created_on='2016-08-17 20:49:53.123456+08:00')
         with self.assertRaises(IntegrityError):
             Sound.objects.create(uuid=new_sound.uuid, duration=123).full_clean()
 
@@ -57,7 +59,7 @@ class SoundModelTests(TestCase):
         The UUID field must exist
         """
         with self.assertRaises(ValidationError):
-            Sound(duration=123).full_clean()
+            Sound(duration=123, created_on='2016-08-17 20:49:53.123456+08:00').full_clean()
 
     def test_bad_uuid(self):
         """
@@ -72,14 +74,21 @@ class SoundModelTests(TestCase):
         ]
         for invalid_uuid in invalid_uuids:
             with self.assertRaises(ValidationError):
-                Sound(uuid=invalid_uuid, duration=123).full_clean()
+                Sound(uuid=invalid_uuid, duration=123, created_on='2016-08-17 20:49:53.123456+08:00').full_clean()
 
     def test_missing_duration(self):
         """
         The duration must exist
         """
         with self.assertRaises(ValidationError):
-            Sound(uuid='41f94400-2a3e-408a-9b80-1774724f62af').full_clean()
+            Sound(uuid='41f94400-2a3e-408a-9b80-1774724f62af', created_on='2016-08-17 20:49:53.123456+08:00').full_clean()
+
+    def test_missing_date(self):
+        """
+        created_on date must exist.
+        """
+        with self.assertRaises(ValidationError):
+            Sound(uuid='41f94400-2a3e-408a-9b80-1774724f62af', duration=123).full_clean()
 
 
 class IndexViewTests(TestCase):
@@ -145,7 +154,7 @@ class RandomViewTests(TestCase):
         """
         Random JSON must return a single random sound via JSON response
         """
-        new_sound = Sound.objects.create(uuid='41f94400-2a3e-408a-9b80-1774724f62af', duration=123)
+        new_sound = Sound.objects.create(uuid='41f94400-2a3e-408a-9b80-1774724f62af', duration=123, created_on='2016-08-17 20:49:53.123456+08:00')
         response = self.client.get(reverse('sounds:random_json'))
         self.assertEqual(response.status_code, 200)
         json_data = response.json()
@@ -155,7 +164,7 @@ class RandomViewTests(TestCase):
         """
         Random view must 404 when no sounds are present or a random sound with the minimum specified duration
         """
-        new_sound = Sound.objects.create(uuid='a7488bf2-fef3-4846-a898-fc60dea73dbb', duration=10)
+        new_sound = Sound.objects.create(uuid='a7488bf2-fef3-4846-a898-fc60dea73dbb', duration=10, created_on='2016-08-17 20:49:53.123456+08:00')
 
         response = self.client.get(reverse('sounds:random_json'), {'min_duration': 11})
         self.assertEqual(response.status_code, 404)
@@ -169,7 +178,7 @@ class RandomViewTests(TestCase):
         """
         Random view must 404 when no sounds are present or a random sound with the maximum specified duration
         """
-        new_sound = Sound.objects.create(uuid='a7488bf2-fef3-4846-a898-fc60dea73dbb', duration=10)
+        new_sound = Sound.objects.create(uuid='a7488bf2-fef3-4846-a898-fc60dea73dbb', duration=10, created_on='2016-08-17 20:49:53.123456+08:00')
 
         response = self.client.get(reverse('sounds:random_json'), {'max_duration': 9})
         self.assertEqual(response.status_code, 404)
@@ -183,7 +192,7 @@ class RandomViewTests(TestCase):
         """
         Random view must 404 when no sounds are present in the specified range or return a random sound in the specified range
         """
-        new_sound = Sound.objects.create(uuid='a7488bf2-fef3-4846-a898-fc60dea73dbb', duration=10)
+        new_sound = Sound.objects.create(uuid='a7488bf2-fef3-4846-a898-fc60dea73dbb', duration=10, created_on='2016-08-17 20:49:53.123456+08:00')
 
         response = self.client.get(reverse('sounds:random_json'), {'min_duration': 11, 'max_duration': 12})
         self.assertEqual(response.status_code, 404)
@@ -223,3 +232,56 @@ class RandomViewTests(TestCase):
 
         response = self.client.get(reverse('sounds:random_json'), {'max_duration': 'baz'})
         self.assertEqual(response.status_code, 404)
+
+
+class ImportViewTests(TestCase):
+
+    def test_import_normal(self):
+        post_data = {
+            'sounds': [
+                {'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'duration': 123, 'created_on': '2016-08-17 20:49:53.123456+08:00'},
+                {'uuid': 'a7488bf2-fef3-4846-a898-fc60dea73dbb', 'duration': 234, 'created_on': '2016-08-17 20:49:53.234567+08:00'},
+                {'uuid': '73671ba8-71a4-463a-a836-eb79ecf50386', 'duration': 345, 'created_on': '2016-08-17 20:49:53.345678+08:00'},
+                {'uuid': '73671ba8-71a4-463a-a836-eb79ecf50386', 'duration': 345, 'created_on': '2016-08-17 20:49:53.345678+08:00'},
+            ]
+        }
+        num_duplicates = 1
+        num_expected = len(post_data['sounds']) - num_duplicates
+
+        response = self.client.post(reverse('sounds:import_json'), json.dumps(post_data), content_type="application/json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Sound.objects.count(), num_expected)
+
+        json_response = response.json()
+        self.assertDictEqual(json_response, {'num_imported': num_expected})
+
+        for sound in post_data['sounds']:
+            found_sound = Sound.objects.filter(uuid=sound['uuid']).filter(duration=sound['duration']).filter(created_on=sound['created_on']).count()
+            self.assertEqual(found_sound, 1)
+
+    def test_import_empty(self):
+        post_data = {
+            'sounds': []
+        }
+        num_expected = len(post_data['sounds'])
+
+        response = self.client.post(reverse('sounds:import_json'), json.dumps(post_data), content_type="application/json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Sound.objects.count(), num_expected)
+
+    def test_import_invalid(self):
+        bad_post_data = [
+            {},
+            {'sounds': 'bananas'},
+            {'sounds': [
+                {},
+                {'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'duration': 123},
+                {'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'created_on': '2016-08-17 20:49:53.123456+08:00'},
+                {'duration': 123, 'created_on': '2016-08-17 20:49:53.123456+08:00'},
+            ]},
+        ]
+
+        for post_data in bad_post_data:
+            response = self.client.post(reverse('sounds:import_json'), json.dumps(post_data), content_type="application/json")
+            self.assertEqual(response.status_code, 404)
+            self.assertEqual(Sound.objects.count(), 0)

@@ -18,4 +18,4 @@ class Sound(models.Model):
         ),
     ])
     duration = models.PositiveIntegerField()
-    created_on = models.DateTimeField(auto_now=True)
+    created_on = models.DateTimeField()
