@@ -4,7 +4,7 @@ from django.views import generic
 from .models import Sound
 from random import randint
 import json
-
+import gzip
 
 class IndexView(generic.ListView):
     def get_queryset(self):
@@ -63,7 +63,8 @@ class ImportJsonView(generic.View):
     def post(self, request):
         num_imported = 0
         try:
-            json_data = json.loads(request.body.decode("utf-8"))
+            decompressed_payload = gzip.decompress(request.body).decode('utf-8')
+            json_data = json.loads(decompressed_payload)
             for sound in json_data['sounds']:
                 if Sound.objects.filter(uuid=sound['uuid']).count() == 0:
                     new_sound = Sound(uuid=sound['uuid'], duration=sound['duration'], created_on=sound['created_on'])

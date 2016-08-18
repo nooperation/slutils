@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
 from .models import Sound
 import json
+import gzip
 
 
 def create_test_sounds():
@@ -246,7 +247,8 @@ class ImportViewTests(TestCase):
         num_duplicates = 1
         num_expected = len(post_data['sounds']) - num_duplicates
 
-        response = self.client.post(reverse('sounds:import_json'), json.dumps(post_data), content_type="application/json")
+        compressed_json = gzip.compress(json.dumps(post_data).encode('utf-8'))
+        response = self.client.post(reverse('sounds:import_json'), compressed_json, content_type="application/json")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Sound.objects.count(), num_expected)
 
@@ -266,7 +268,8 @@ class ImportViewTests(TestCase):
         }
         num_expected = len(post_data['sounds'])
 
-        response = self.client.post(reverse('sounds:import_json'), json.dumps(post_data), content_type="application/json")
+        compressed_json = gzip.compress(json.dumps(post_data).encode('utf-8'))
+        response = self.client.post(reverse('sounds:import_json'), compressed_json, content_type="application/json")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Sound.objects.count(), num_expected)
 
@@ -286,6 +289,7 @@ class ImportViewTests(TestCase):
         ]
 
         for post_data in bad_post_data:
-            response = self.client.post(reverse('sounds:import_json'), json.dumps(post_data), content_type="application/json")
+            compressed_json = gzip.compress(json.dumps(post_data).encode('utf-8'))
+            response = self.client.post(reverse('sounds:import_json'), compressed_json, content_type="gzip/json")
             self.assertEqual(response.status_code, 404)
             self.assertEqual(Sound.objects.count(), 0)
