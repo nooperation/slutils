@@ -237,6 +237,9 @@ class RandomViewTests(TestCase):
 class ImportViewTests(TestCase):
 
     def test_import_normal(self):
+        """
+        Normal importing of sounds (and duplicate sounds) must succeed. Duplicate sounds must be ignored.
+        """
         post_data = {
             'sounds': [
                 {'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'duration': 123, 'created_on': '2016-08-17 20:49:53.123456+08:00'},
@@ -260,6 +263,9 @@ class ImportViewTests(TestCase):
             self.assertEqual(found_sound, 1)
 
     def test_import_empty(self):
+        """
+        Importing an empty list of sounds must succeed and not add any sounds.
+        """
         post_data = {
             'sounds': []
         }
@@ -270,6 +276,9 @@ class ImportViewTests(TestCase):
         self.assertEqual(Sound.objects.count(), num_expected)
 
     def test_import_invalid(self):
+        """
+        Importing invalid sounds must 404 and not add any sounds.
+        """
         bad_post_data = [
             {},
             {'sounds': 'bananas'},
