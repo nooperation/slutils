@@ -214,24 +214,19 @@ class RandomViewTests(TestCase):
         """
         Random view must 404 on invalid input
         """
-        # TODO: Stop using 404 for everything...
-        response = self.client.get(reverse('sounds:random_json'), {'min_duration': None, 'max_duration': None})
-        self.assertEqual(response.status_code, 404)
+        bad_post_data = [
+            {},
+            {'min_duration': None, 'max_duration': None},
+            {'min_duration': None},
+            {'max_duration': None},
+            {'min_duration': 'foobar', 'max_duration': 'baz'},
+            {'min_duration': 'foobar'},
+            {'max_duration': 'baz'}
+        ]
 
-        response = self.client.get(reverse('sounds:random_json'), {'min_duration': None})
-        self.assertEqual(response.status_code, 404)
-
-        response = self.client.get(reverse('sounds:random_json'), {'max_duration': None})
-        self.assertEqual(response.status_code, 404)
-
-        response = self.client.get(reverse('sounds:random_json'), {'min_duration': 'foobar', 'max_duration': 'baz'})
-        self.assertEqual(response.status_code, 404)
-
-        response = self.client.get(reverse('sounds:random_json'), {'min_duration': 'foobar'})
-        self.assertEqual(response.status_code, 404)
-
-        response = self.client.get(reverse('sounds:random_json'), {'max_duration': 'baz'})
-        self.assertEqual(response.status_code, 404)
+        for post_data in bad_post_data:
+            response = self.client.get(reverse('sounds:random_json'), post_data)
+            self.assertEqual(response.status_code, 404)
 
 
 class ImportViewTests(TestCase):
