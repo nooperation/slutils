@@ -132,7 +132,7 @@ class AllViewTests(TestCase):
         json_sounds = []
 
         for sound in sounds:
-            json_sounds.append({'uuid': sound.uuid, 'duration': sound.duration})
+            json_sounds.append(sound.uuid)
         expected_json = {'sounds': json_sounds}
 
         response = self.client.get(reverse('sounds:all_json'))
