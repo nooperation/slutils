@@ -54,8 +54,9 @@ class AllJsonView(generic.View):
         sounds = Sound.objects.all()
         sounds_json = []
         for sound in sounds:
-            sounds_json.append({'uuid': sound.uuid, 'duration': sound.duration})
-        return JsonResponse({"sounds": sounds_json})
+            sounds_json.append(sound.uuid)
+
+        return JsonResponse({'sounds': sounds_json})
 
 
 class ImportJsonView(generic.View):
