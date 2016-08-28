@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <form class="form-horizontal"  method="post" action="{% url 'login' %}">
+    {% csrf_token %}
+    {% for hidden in form.hidden_fields %}
+      {{ hidden }}
+    {% endfor %}
+    <h2 class="form-signin-heading">Sign in</h2>
+
+{% if form.errors %}
+    <p class="text-danger">Login failed.</p>
+{% endif %}
+
+    {{ form.username.errors }}
+    <label for="{{ form.username.id_for_label }}" class="sr-only">{{ form.username.label_tag }}</label>
+    <input type="text" id="{{ form.username.id_for_label }}" name="{{ form.username.html_name }}"  class="form-control" placeholder="{{ form.username.label }}" required
+      {% if form.username.value %} 
+        value="{{ form.username.value }}" 
+      {% else %} 
+        autofocus=""
+      {% endif %}>
+    {{ form.password.errors }}
+    <label for="{{ form.password.id_for_label }}" class="sr-only">{{ form.password.label_tag }}</label>
+    <input type="password" id="{{ form.password.id_for_label }}" name="{{ form.password.html_name }}" class="form-control" placeholder="{{ form.password.label }}" required
+      {% if form.username.value %} 
+        autofocus=""
+      {% endif %}>
+    <br />
+    <button class="btn btn-lg btn-primary btn-block" type="submit">Sign in</button>
+    <input type="hidden" name="next" value="{{ next }}" />
+  </form>
+{% endblock %}

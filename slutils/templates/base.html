@@ -1,0 +1,55 @@
+<head>
+  {% load static %}
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+  <link href="{% static 'custom.css' %}" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar navbar-default">
+  <div class="container-fluid">
+    <div class="navbar-header">
+      <a class="navbar-brand" href="/">Utils</a>
+    </div>
+    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+      <ul class="nav navbar-nav">
+        {% if request.resolver_match.view_name == 'sounds:index' %}
+          <li class="active"><a href="#">Sounds<span class="sr-only">(current)</span></a></li>
+        {% else %}
+          <li><a href="{% url 'sounds:index' %}">Sounds</a></li>
+        {% endif %}
+        
+        {% if request.resolver_match.view_name == 'map:index' %}
+          <li class="active"><a href="#">Map<span class="sr-only">(current)</span></a></li>
+        {% else %}
+          <li><a href="#">Map</a></li>
+        {% endif %}
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+      {% if not user or not user.is_authenticated %}
+        <li>
+          <form class="navbar-form navbar-right"  method="post" action="{% url 'login' %}">
+            {% csrf_token %}
+            <label for="form_username_id_for_label" class="sr-only">Username:</label>
+            <input type="text" id="form_username_id_for_label" name="username"  class="form-control" placeholder="Username" required autofocus="">
+            
+            <label for="form_password_id_for_label" class="sr-only">Password:</label>
+            <input type="password" id="form_password_id_for_label" name="password" class="form-control" placeholder="Password" required>
+            
+            <button class="btn btn-primary " type="submit">Sign in</button>
+            <input type="hidden" name="next" value="/sounds" />
+          </form>
+        </li>
+      {% else %}
+        <li><p><a class="navbar-brand" href="#">{{ user.username }}</a></p></li>
+        <li><a href="{% url 'logout' %}">Logout</a></li>
+      {% endif %}
+      </ul>
+    </div>
+  </div>
+</nav>
+  <div class="content container">
+    <div class="col-md-4 center-block ">
+      {% block content %}
+      {% endblock %}
+    </div>
+  </div>
+</body>
