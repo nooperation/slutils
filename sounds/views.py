@@ -9,9 +9,9 @@ from random import randint
 import json
 import gzip
 
-class IndexView(LoginRequiredMixin, generic.ListView):
+class IndexView(generic.ListView):
     def get_queryset(self):
-        return Sound.objects.all()
+        return Sound.objects.all()[:100]
 
 
 class RandomJsonView(generic.View):

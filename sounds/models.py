@@ -17,5 +17,5 @@ class Sound(models.Model):
             code='invalid_uuid'
         ),
     ])
-    duration = models.PositiveIntegerField()
+    duration = models.FloatField()
     created_on = models.DateTimeField()
