@@ -64,7 +64,8 @@ class AllJsonView(generic.View):
 
 class ImportJsonView(generic.View):
     def post(self, request):
-        num_imported = 0
+        bulk_sounds = []
+
         try:
             decompressed_payload = gzip.decompress(request.body).decode('utf-8')
             json_data = json.loads(decompressed_payload)
@@ -72,11 +73,13 @@ class ImportJsonView(generic.View):
                 if Sound.objects.filter(uuid=sound['uuid']).count() == 0:
                     new_sound = Sound(uuid=sound['uuid'], duration=sound['duration'], created_on=sound['created_on'])
                     new_sound.full_clean()
-                    new_sound.save()
-                    num_imported += 1
-        except IntegrityError:
-            raise Http404("Integrity Error")
-        except:
-            raise Http404("Failed to import sounds")
+                    bulk_sounds.append(new_sound)
+        except IntegrityError as ex:
+            return JsonResponse({'error': ex.message})
 
-        return JsonResponse({'num_imported': num_imported})
+        try:
+            Sound.objects.bulk_create(bulk_sounds)
+        except Exception as ex:
+            return JsonResponse({'Error': 'Failed to bulk import sounds'})
+
+        return JsonResponse({'num_imported': len(bulk_sounds)})
