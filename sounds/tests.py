@@ -231,20 +231,18 @@ class RandomViewTests(TestCase):
 
 
 class ImportViewTests(TestCase):
-
     def test_import_normal(self):
         """
-        Normal importing of sounds (and duplicate sounds) must succeed. Duplicate sounds must be ignored.
+        Normal importing of sounds must succeed. No duplicates.
         """
         post_data = {
             'sounds': [
                 {'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'duration': 123, 'created_on': '2016-08-17 20:49:53.123456+08:00'},
                 {'uuid': 'a7488bf2-fef3-4846-a898-fc60dea73dbb', 'duration': 234, 'created_on': '2016-08-17 20:49:53.234567+08:00'},
                 {'uuid': '73671ba8-71a4-463a-a836-eb79ecf50386', 'duration': 345, 'created_on': '2016-08-17 20:49:53.345678+08:00'},
-                {'uuid': '73671ba8-71a4-463a-a836-eb79ecf50386', 'duration': 345, 'created_on': '2016-08-17 20:49:53.345678+08:00'},
             ]
         }
-        num_duplicates = 1
+        num_duplicates = 0
         num_expected = len(post_data['sounds']) - num_duplicates
 
         compressed_json = gzip.compress(json.dumps(post_data).encode('utf-8'))
@@ -257,6 +255,33 @@ class ImportViewTests(TestCase):
 
         for sound in post_data['sounds']:
             found_sound = Sound.objects.filter(uuid=sound['uuid']).filter(duration=sound['duration']).filter(created_on=sound['created_on']).count()
+            self.assertEqual(found_sound, 1)
+
+    def test_import_duplicates(self):
+        """
+        Importing of duplicate sounds must succeed. Uniqueness of sounds is dependent on only the uuid. Duplicate sounds must be ignored.
+        """
+        post_data = {
+            'sounds': [
+                {'uuid': '73671ba8-71a4-463a-a836-eb79ecf50386', 'duration': 345, 'created_on': '2016-08-17 20:49:53.345678+08:00'},
+                {'uuid': '73671ba8-71a4-463a-a836-eb79ecf50386', 'duration': 1, 'created_on': '2016-08-17 20:49:53.345678+08:00'},
+                {'uuid': '73671ba8-71a4-463a-a836-eb79ecf50386', 'duration': 0, 'created_on': '2016-08-17 20:49:53.345678+08:00'},
+                {'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'duration': 123, 'created_on': '2016-08-17 20:49:53.123456+08:00'},
+            ]
+        }
+        num_duplicates = 2
+        num_expected = len(post_data['sounds']) - num_duplicates
+
+        compressed_json = gzip.compress(json.dumps(post_data).encode('utf-8'))
+        response = self.client.post(reverse('sounds:import_json'), compressed_json, content_type="application/json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Sound.objects.count(), num_expected)
+
+        json_response = response.json()
+        self.assertDictEqual(json_response, {'num_imported': num_expected})
+
+        for sound in post_data['sounds']:
+            found_sound = Sound.objects.filter(uuid=sound['uuid']).count()
             self.assertEqual(found_sound, 1)
 
     def test_import_empty(self):
@@ -291,5 +316,7 @@ class ImportViewTests(TestCase):
         for post_data in bad_post_data:
             compressed_json = gzip.compress(json.dumps(post_data).encode('utf-8'))
             response = self.client.post(reverse('sounds:import_json'), compressed_json, content_type="gzip/json")
-            self.assertEqual(response.status_code, 404)
+            self.assertEqual(response.status_code, 200)
             self.assertEqual(Sound.objects.count(), 0)
+            json_response = json.loads(response.content.decode('utf-8'))
+            self.assertTrue('error' in json_response)

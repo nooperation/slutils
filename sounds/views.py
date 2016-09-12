@@ -65,17 +65,23 @@ class AllJsonView(generic.View):
 class ImportJsonView(generic.View):
     def post(self, request):
         bulk_sounds = []
+        processed_uuids = set()
 
         try:
             decompressed_payload = gzip.decompress(request.body).decode('utf-8')
             json_data = json.loads(decompressed_payload)
             for sound in json_data['sounds']:
-                if Sound.objects.filter(uuid=sound['uuid']).count() == 0:
-                    new_sound = Sound(uuid=sound['uuid'], duration=sound['duration'], created_on=sound['created_on'])
-                    new_sound.full_clean()
-                    bulk_sounds.append(new_sound)
+                sound_uuid = sound['uuid']
+                if sound_uuid not in processed_uuids:
+                    processed_uuids.add(sound_uuid)
+                    if Sound.objects.filter(uuid=sound_uuid).count() == 0:
+                        new_sound = Sound(uuid=sound_uuid, duration=sound['duration'], created_on=sound['created_on'])
+                        new_sound.full_clean()
+                        bulk_sounds.append(new_sound)
         except IntegrityError as ex:
             return JsonResponse({'error': ex.message})
+        except Exception as ex:
+            return JsonResponse({'error': 'Error'})
 
         try:
             Sound.objects.bulk_create(bulk_sounds)
