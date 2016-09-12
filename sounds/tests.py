@@ -29,13 +29,6 @@ def create_test_sounds():
     return sounds
 
 
-def assert_sound_queryset_equal(test, sound_queryset, expected_sounds):
-    expected_values = []
-    for item in expected_sounds:
-        expected_values.append("<Sound: {0}>".format(item))
-    return test.assertQuerysetEqual(qs=sound_queryset, values=expected_values, ordered=False)
-
-
 # Create your tests here.
 class SoundModelTests(TestCase):
     def test_normal_creation(self):
@@ -43,7 +36,7 @@ class SoundModelTests(TestCase):
         Normal creation of multiple unique sounds
         """
         sounds = create_test_sounds()
-        assert_sound_queryset_equal(self, Sound.objects.all(), sounds)
+        self.assertSequenceEqual(Sound.objects.all(), sounds)
         for sound in sounds:
             sound.full_clean()
 
@@ -111,7 +104,7 @@ class IndexViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIsNotNone(response.context)
-        assert_sound_queryset_equal(self, response.context['sound_list'], sounds)
+        self.assertSequenceEqual(response.context['sound_list'], sounds)
 
 
 class AllViewTests(TestCase):
