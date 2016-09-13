@@ -87,6 +87,7 @@ class ShardTests(TransactionTestCase):
                 Shard(name=invalid_name).full_clean()
         self.assertEqual(Shard.objects.count(), 0)
 
+
 class RegionTests(TransactionTestCase):
     def setUp(self):
         self.first_shard = Shard.objects.create(name='Shard A')
@@ -114,10 +115,6 @@ class RegionTests(TransactionTestCase):
         """
         Duplicate regions must not exist. Regions must be unique based off of shard AND region name.
         """
-        Region.objects.create(name='First Region', shard=self.first_shard)
-        Region.objects.create(name='First Region', shard=self.second_shard)
-        Region.objects.create(name='Second Region', shard=self.first_shard)
-
         valid_regions = [
             {'name': 'First Region', 'shard': self.first_shard},
             {'name': 'First Region', 'shard': self.second_shard},
@@ -129,7 +126,7 @@ class RegionTests(TransactionTestCase):
             regions.append(Region.objects.create(name=region['name'], shard=region['shard']))
 
         for region in valid_regions:
-            with self.assertRaises(ValidationError):
+            with self.assertRaises(IntegrityError):
                 Region.objects.create(name=region['name'], shard=region['shard'])
 
         self.assertSequenceEqual(Region.objects.all(), regions)
@@ -158,6 +155,7 @@ class RegionTests(TransactionTestCase):
 
         self.assertEqual(Region.objects.count(), 0)
 
+
 class AgentTests(TransactionTestCase):
     def setUp(self):
         self.first_shard = Shard.objects.create(name='Shard A')
@@ -165,18 +163,114 @@ class AgentTests(TransactionTestCase):
 
     def test_normal_creation(self):
         """
-        Normal creation of agents. Agents must be unique based off of name AND shard AND uuid.
+        Normal creation of agents. Agents must be unique based off of uuid AND shard.
         """
         valid_agents = [
-            {'name': 'First Agent', 'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'shard': self.first_shard, 'auth_token': None, 'auth_token_date': None},
-            {'name': 'First Agent', 'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'shard': self.second_shard, 'auth_token': None, 'auth_token_date': None},
-            {'name': 'Second Agent', 'uuid': 'a7488bf2-fef3-4846-a898-fc60dea73dbb', 'shard': self.first_shard, 'auth_token': None, 'auth_token_date': None},
+            {'name': 'First Agent', 'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'shard': self.first_shard},
+            {'name': 'First Agent', 'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'shard': self.second_shard},
+            {'name': 'Second Agent', 'uuid': 'a7488bf2-fef3-4846-a898-fc60dea73dbb', 'shard': self.first_shard},
         ]
 
         agents = []
         for agent in valid_agents:
             agent = Agent.objects.create(name=agent['name'], uuid=agent['uuid'], shard=agent['shard'])
             agent.full_clean()
-            agent.append(region)
+            agents.append(agent)
 
         self.assertSequenceEqual(Agent.objects.all(), agents)
+
+    def test_duplicates(self):
+        valid_agents = [
+            {'name': 'First Agent', 'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'shard': self.first_shard},
+            {'name': 'First Agent', 'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'shard': self.second_shard},
+            {'name': 'Second Agent', 'uuid': 'a7488bf2-fef3-4846-a898-fc60dea73dbb', 'shard': self.first_shard},
+        ]
+
+        agents = []
+        for agent in valid_agents:
+            agent = Agent.objects.create(name=agent['name'], uuid=agent['uuid'], shard=agent['shard'])
+            agents.append(agent)
+
+        for agent in valid_agents:
+            with self.assertRaises(IntegrityError):
+                Agent.objects.create(name=agent['name'], uuid=agent['uuid'], shard=agent['shard'])
+
+        self.assertSequenceEqual(Agent.objects.all(), agents)
+
+    def test_invalid(self):
+        invalid_agents = [
+            {'name': 'First Agent', 'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'shard': None},
+
+            {'name': 'First Agent', 'uuid': 'Bad UUID', 'shard': self.first_shard},
+            {'name': 'First Agent', 'uuid': None, 'shard': self.first_shard},
+
+            {'name': 'x'*256, 'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'shard': self.first_shard},
+            {'name': None, 'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'shard': self.first_shard},
+        ]
+
+        for agent in invalid_agents:
+            with self.assertRaises(ValidationError):
+                Agent(name=agent['name'], uuid=agent['uuid'], shard=agent['shard']).full_clean()
+
+class ServerTests(TransactionTestCase):
+    def setUp(self):
+        self.server_type = ServerType.objects.create(name='Test Server')
+        self.first_shard = Shard.objects.create(name='Shard A')
+        self.first_region = Region.objects.create(name='Region A', shard=self.first_shard)
+        self.first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=self.first_shard)
+
+    def test_normal_creation(self):
+        valid_servers = [
+            {
+                'uuid': '12345678-2a3e-408a-9b80-1234567890ab',
+                'type': self.server_type,
+                'shard': self.first_shard,
+                'region': self.first_region,
+                'owner': self.first_agent,
+                'name': 'Server A',
+                'auth_token': '4d4dde228e962703e453d3a03bd38188',
+                'public_token': 'd52181412418fff9c3ef01e84997077d',
+                'address': 'http://localhost/asdf',
+                'position_x': 1.23,
+                'position_y': 2.34,
+                'position_z': 3.45,
+                'enabled': True
+            },
+            {
+                'uuid': '00000000-0000-0000-0000-000000000001',
+                'type': self.server_type,
+                'shard': self.first_shard,
+                'region': self.first_region,
+                'owner': self.first_agent,
+                'name': 'Server B',
+                'auth_token': '3a989edf1a5c2d0fb15eb97e4ea67c6f',
+                'public_token': '3a989edf1a5c2d0fb15eb97e4ea67c6f',
+                'address': 'http://localhost/foo/bar/baz',
+                'position_x': 4.44,
+                'position_y': 5.55,
+                'position_z': 6.66,
+                'enabled': False
+            },
+        ]
+
+        servers = []
+        for valid_server in valid_servers:
+            server = Server.objects.create(
+                uuid=valid_server['uuid'],
+                type=valid_server['type'],
+                shard=valid_server['shard'],
+                region=valid_server['region'],
+                owner=valid_server['owner'],
+                name=valid_server['name'],
+                address=valid_server['address'],
+                auth_token=valid_server['auth_token'],
+                public_token=valid_server['public_token'],
+                position_x=valid_server['position_x'],
+                position_y=valid_server['position_y'],
+                position_z=valid_server['position_z'],
+                enabled=valid_server['enabled']
+            )
+            server.full_clean()
+            servers.append(server)
+
+        self.assertSequenceEqual(Server.objects.all(), servers)
