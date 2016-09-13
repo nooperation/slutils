@@ -157,3 +157,26 @@ class RegionTests(TransactionTestCase):
                 Region(name=invalid_region['name'], shard=invalid_region['shard']).full_clean()
 
         self.assertEqual(Region.objects.count(), 0)
+
+class AgentTests(TransactionTestCase):
+    def setUp(self):
+        self.first_shard = Shard.objects.create(name='Shard A')
+        self.second_shard = Shard.objects.create(name='Shard B')
+
+    def test_normal_creation(self):
+        """
+        Normal creation of agents. Agents must be unique based off of name AND shard AND uuid.
+        """
+        valid_agents = [
+            {'name': 'First Agent', 'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'shard': self.first_shard, 'auth_token': None, 'auth_token_date': None},
+            {'name': 'First Agent', 'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'shard': self.second_shard, 'auth_token': None, 'auth_token_date': None},
+            {'name': 'Second Agent', 'uuid': 'a7488bf2-fef3-4846-a898-fc60dea73dbb', 'shard': self.first_shard, 'auth_token': None, 'auth_token_date': None},
+        ]
+
+        agents = []
+        for agent in valid_agents:
+            agent = Agent.objects.create(name=agent['name'], uuid=agent['uuid'], shard=agent['shard'])
+            agent.full_clean()
+            agent.append(region)
+
+        self.assertSequenceEqual(Agent.objects.all(), agents)
