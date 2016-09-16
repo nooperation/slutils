@@ -212,6 +212,7 @@ class AgentTests(TransactionTestCase):
             with self.assertRaises(ValidationError):
                 Agent(name=agent['name'], uuid=agent['uuid'], shard=agent['shard']).full_clean()
 
+
 class ServerTests(TransactionTestCase):
     def setUp(self):
         self.server_type = ServerType.objects.create(name='Test Server')
@@ -228,8 +229,8 @@ class ServerTests(TransactionTestCase):
                 'region': self.first_region,
                 'owner': self.first_agent,
                 'name': 'Server A',
-                'auth_token': '4d4dde228e962703e453d3a03bd38188',
-                'public_token': 'd52181412418fff9c3ef01e84997077d',
+                'auth_token': '11111111111111111111111111111111',
+                'public_token': '10101010101010101010101010101010',
                 'address': 'http://localhost/asdf',
                 'position_x': 1.23,
                 'position_y': 2.34,
@@ -243,8 +244,8 @@ class ServerTests(TransactionTestCase):
                 'region': self.first_region,
                 'owner': self.first_agent,
                 'name': 'Server B',
-                'auth_token': '3a989edf1a5c2d0fb15eb97e4ea67c6f',
-                'public_token': '3a989edf1a5c2d0fb15eb97e4ea67c6f',
+                'auth_token': '22222222222222222222222222222222',
+                'public_token': '20202020202020202020202020202020',
                 'address': 'http://localhost/foo/bar/baz',
                 'position_x': 4.44,
                 'position_y': 5.55,
@@ -274,3 +275,120 @@ class ServerTests(TransactionTestCase):
             servers.append(server)
 
         self.assertSequenceEqual(Server.objects.all(), servers)
+
+
+class RegisterViewTests(TransactionTestCase):
+    def setUp(self):
+        self.server_data = {
+            'shard': 'Test Shard',
+            'owner_key': '41f94400-2a3e-408a-9b80-1774724f62af',
+            'owner_name': 'example resident',
+            'object_key': '00000000-0000-0000-0000-000000000001',
+            'object_name': 'Object name goes here',
+            'region': 'Test_region',
+            'address': 'http://google.com/foo/bar',
+            'x': 1.2345,
+            'y': 2.3456,
+            'z': 3.4567
+        }
+
+    def test_new_server(self):
+        response = self.client.post(reverse('server:register'), self.server_data)
+        self.assertEquals(response.status_code, 200)
+        self.assertTrue('Success' in response.json())
+        self.assertEquals(Server.objects.count(), 1)
+
+        first_server = Server.objects.first()
+        self.assertEquals(first_server.shard.name, self.server_data['shard'])
+        self.assertEquals(first_server.owner.uuid, self.server_data['owner_key'])
+        self.assertEquals(first_server.owner.name, self.server_data['owner_name'])
+        self.assertEquals(first_server.region.name, self.server_data['region'])
+        self.assertEquals(first_server.uuid, self.server_data['object_key'])
+        self.assertEquals(first_server.name, self.server_data['object_name'])
+        self.assertEquals(first_server.address, self.server_data['address'])
+        self.assertEquals(first_server.position_x, self.server_data['x'])
+        self.assertEquals(first_server.position_y, self.server_data['y'])
+        self.assertEquals(first_server.position_z, self.server_data['z'])
+
+    def test_existing_server(self):
+        new_server_response = self.client.post(reverse('server:register'), self.server_data)
+        self.assertEquals(new_server_response.status_code, 200)
+        self.assertTrue('Success' in new_server_response.json())
+
+        existing_server_response = self.client.post(reverse('server:register'), self.server_data)
+        self.assertEquals(existing_server_response.status_code, 200)
+        self.assertTrue('Error' in existing_server_response.json())
+
+        self.assertEquals(Server.objects.count(), 1)
+
+    def test_missing_param(self):
+        for key in self.server_data:
+            partial_server_data= self.server_data.copy()
+            del partial_server_data[key]
+            response = self.client.post(reverse('server:register'), partial_server_data)
+            self.assertTrue('Error' in response.json())
+
+        self.assertEquals(Server.objects.count(), 0)
+
+class UpdateViewTests(TransactionTestCase):
+    def setUp(self):
+        server_type = ServerType.objects.create(name='Test Server')
+        first_shard = Shard.objects.create(name='Shard A')
+        first_region = Region.objects.create(name='Region A', shard=first_shard)
+        first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
+        self.server_data = {
+            'uuid': '00000000-0000-0000-0000-000000000001',
+            'type': server_type,
+            'shard': first_shard,
+            'region': first_region,
+            'owner': first_agent,
+            'name': 'Server B',
+            'auth_token': '11111111111111111111111111111111',
+            'public_token': '10101010101010101010101010101010',
+            'address': 'http://localhost/foo/bar/baz',
+            'position_x': 4.44,
+            'position_y': 5.55,
+            'position_z': 6.66,
+            'enabled': False
+        }
+        self.test_server = Server.objects.create(
+            uuid=self.server_data['uuid'],
+            type=self.server_data['type'],
+            shard=self.server_data['shard'],
+            region=self.server_data['region'],
+            owner=self.server_data['owner'],
+            name=self.server_data['name'],
+            address=self.server_data['address'],
+            auth_token=self.server_data['auth_token'],
+            public_token=self.server_data['public_token'],
+            position_x=self.server_data['position_x'],
+            position_y=self.server_data['position_y'],
+            position_z=self.server_data['position_z'],
+            enabled=self.server_data['enabled']
+        )
+
+    def test_normal_update(self):
+        new_address = 'http://example.com'
+        response = self.client.post(reverse('server:update'), {'auth_token': self.test_server.auth_token, 'address': new_address})
+        self.assertEquals(response.status_code, 200)
+        self.assertTrue('Success' in response.json())
+        self.assertEquals(Server.objects.count(), 1)
+
+        first_server = Server.objects.first()
+        self.assertEquals(first_server.address, new_address)
+
+    def test_invalid_auth_token_update(self):
+        invalid_auth_tokens = [
+            self.test_server.public_token,
+            '00000000000000000000000000000000',
+            '',
+            None
+        ]
+
+        new_address = 'http://example.com'
+
+        for invalid_auth_token in invalid_auth_tokens:
+            response = self.client.post(reverse('server:update'), {'auth_token': invalid_auth_token, 'address': new_address})
+            self.assertTrue('Error' in response.json())
+            first_server = Server.objects.first()
+            self.assertEquals(first_server.address, self.server_data['address'])
