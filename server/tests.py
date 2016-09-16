@@ -3,10 +3,7 @@ from django.db import IntegrityError
 from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
 from .models import *
-import json
-import gzip
 
-# Create your tests here.
 
 class ServerTypeTests(TransactionTestCase):
     def test_normal_creation(self):
@@ -137,7 +134,7 @@ class RegionTests(TransactionTestCase):
         """
         invalid_regions = [
             {'name': None, 'shard': self.first_shard},
-            {'name': None, 'shard': None},
+            {'name': 'region name', 'shard': None},
         ]
 
         for invalid_region in invalid_regions:
@@ -323,12 +320,13 @@ class RegisterViewTests(TransactionTestCase):
 
     def test_missing_param(self):
         for key in self.server_data:
-            partial_server_data= self.server_data.copy()
+            partial_server_data = self.server_data.copy()
             del partial_server_data[key]
             response = self.client.post(reverse('server:register'), partial_server_data)
             self.assertTrue('Error' in response.json())
 
         self.assertEquals(Server.objects.count(), 0)
+
 
 class UpdateViewTests(TransactionTestCase):
     def setUp(self):

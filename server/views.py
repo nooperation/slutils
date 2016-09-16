@@ -1,19 +1,14 @@
-from django.db import IntegrityError
 from django.http import Http404, JsonResponse
 from django.views import generic
-from django.contrib.auth import authenticate, login
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
 from .models import *
-from random import randint
-import json
-import gzip
 import os
 import binascii
+
 
 class IndexView(generic.ListView):
     def get_queryset(self):
         return Server.objects.all()[:100]
+
 
 class RegisterView(generic.View):
     def post(self, request):
@@ -35,6 +30,8 @@ class RegisterView(generic.View):
         region, created = Region.objects.get_or_create(shard=shard, name=region_name)
         owner, created = Agent.objects.get_or_create(shard=shard, name=owner_name, uuid=owner_key)
         server_type, created = ServerType.objects.get_or_create(name='Unassigned')
+        auth_token = None
+        public_token = None
 
         for i in range(0, 10):
             auth_token = binascii.hexlify(os.urandom(16)).decode('utf-8')
@@ -46,7 +43,7 @@ class RegisterView(generic.View):
 
         for i in range(0, 10):
             public_token = binascii.hexlify(os.urandom(16)).decode('utf-8')
-            if Server.objects.filter(public_token=auth_token).count() != 0:
+            if Server.objects.filter(public_token=public_token).count() != 0:
                 print('public_token already taken')
                 public_token = None
             else:
@@ -56,7 +53,7 @@ class RegisterView(generic.View):
             return JsonResponse({'Error': 'Failed to generate auth tokens'})
 
         try:
-            new_server = Server.objects.create(
+            Server.objects.create(
                 uuid=server_key,
                 type=server_type,
                 shard=shard,
