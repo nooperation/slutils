@@ -7,9 +7,6 @@ from django.contrib.auth.models import User
 
 # Create your models here.
 
-class ServerType(models.Model):
-    name = models.CharField(max_length=64, unique=True)
-
 
 class Shard(models.Model):
     name = models.CharField(max_length=255, unique=True)
@@ -41,6 +38,15 @@ class Agent(models.Model):
 
 
 class Server(models.Model):
+    TYPE_UNREGISTERED = 0
+    TYPE_DEFAULT = 1
+    TYPE_MAP = 2
+    SERVER_TYPE_CHOICES = (
+        (TYPE_UNREGISTERED, 'Unregistered'),
+        (TYPE_DEFAULT, 'Default'),
+        (TYPE_MAP, 'Map'),
+    )
+
     @staticmethod
     def generate_auth_token():
         token = None
@@ -76,7 +82,7 @@ class Server(models.Model):
             code='invalid_uuid'
         ),
     ])
-    type = models.ForeignKey(ServerType, on_delete=models.DO_NOTHING)
+    type = models.IntegerField(choices=SERVER_TYPE_CHOICES, default=TYPE_UNREGISTERED)
     shard = models.ForeignKey(Shard, on_delete=models.DO_NOTHING)
     region = models.ForeignKey(Region, on_delete=models.DO_NOTHING)
     owner = models.ForeignKey(Agent, on_delete=models.DO_NOTHING)

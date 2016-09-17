@@ -28,7 +28,6 @@ class RegisterView(generic.View):
         shard, created = Shard.objects.get_or_create(name=shard_name)
         region, created = Region.objects.get_or_create(shard=shard, name=region_name)
         owner, created = Agent.objects.get_or_create(shard=shard, name=owner_name, uuid=owner_key)
-        server_type, created = ServerType.objects.get_or_create(name='Unassigned')
         auth_token = Server.generate_auth_token()
         public_token = Server.generate_public_token()
 
@@ -38,7 +37,7 @@ class RegisterView(generic.View):
         try:
             Server.objects.create(
                 uuid=server_key,
-                type=server_type,
+                type=Server.TYPE_UNREGISTERED,
                 shard=shard,
                 region=region,
                 owner=owner,
@@ -90,6 +89,7 @@ class ConfirmView(generic.View):
             elif existing_server.user is not None:
                 return JsonResponse({'Error': 'Server already registered'})
             else:
+                existing_server.type = Server.TYPE_DEFAULT
                 existing_server.regenerate_auth_token()
                 existing_server.user = request.user
                 existing_server.save()

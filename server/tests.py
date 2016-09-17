@@ -5,46 +5,6 @@ from django.core.urlresolvers import reverse
 from .models import *
 
 
-class ServerTypeTests(TransactionTestCase):
-    def test_normal_creation(self):
-        """
-        Normal creation of server types
-        """
-        valid_names = [
-            'Test',
-            'Another Test'
-        ]
-        server_types = []
-        for name in valid_names:
-            server_type = ServerType.objects.create(name=name)
-            server_type.full_clean()
-            server_types.append(server_type)
-        self.assertSequenceEqual(ServerType.objects.all(), server_types)
-
-    def test_duplicate_creation(self):
-        """
-        Creation of duplicate server types must fail.
-        """
-        server_type = ServerType.objects.create(name='Test')
-        with self.assertRaises(IntegrityError):
-            ServerType.objects.create(name='Test').full_clean()
-        self.assertSequenceEqual(ServerType.objects.all(), [server_type])
-
-    def test_invalid_creation(self):
-        """
-        Creation of invalid server types must fail.
-        """
-        invalid_names = [
-            None,
-            '',
-            'x' * 65
-        ]
-        for invalid_name in invalid_names:
-            with self.assertRaises(ValidationError):
-                ServerType(name=invalid_name).full_clean()
-        self.assertEqual(ServerType.objects.count(), 0)
-
-
 class ShardTests(TransactionTestCase):
     def test_normal_creation(self):
         """
@@ -212,7 +172,6 @@ class AgentTests(TransactionTestCase):
 
 class ServerTests(TransactionTestCase):
     def setUp(self):
-        self.server_type = ServerType.objects.create(name='Test Server')
         self.first_shard = Shard.objects.create(name='Shard A')
         self.first_region = Region.objects.create(name='Region A', shard=self.first_shard)
         self.first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=self.first_shard)
@@ -221,7 +180,7 @@ class ServerTests(TransactionTestCase):
         valid_servers = [
             {
                 'uuid': '12345678-2a3e-408a-9b80-1234567890ab',
-                'type': self.server_type,
+                'type': Server.TYPE_UNREGISTERED,
                 'shard': self.first_shard,
                 'region': self.first_region,
                 'owner': self.first_agent,
@@ -236,7 +195,7 @@ class ServerTests(TransactionTestCase):
             },
             {
                 'uuid': '00000000-0000-0000-0000-000000000001',
-                'type': self.server_type,
+                'type': Server.TYPE_UNREGISTERED,
                 'shard': self.first_shard,
                 'region': self.first_region,
                 'owner': self.first_agent,
@@ -330,13 +289,12 @@ class RegisterViewTests(TransactionTestCase):
 
 class UpdateViewTests(TransactionTestCase):
     def setUp(self):
-        server_type = ServerType.objects.create(name='Test Server')
         first_shard = Shard.objects.create(name='Shard A')
         first_region = Region.objects.create(name='Region A', shard=first_shard)
         first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
         self.server_data = {
             'uuid': '00000000-0000-0000-0000-000000000001',
-            'type': server_type,
+            'type': Server.TYPE_UNREGISTERED,
             'shard': first_shard,
             'region': first_region,
             'owner': first_agent,
@@ -397,13 +355,12 @@ class ConfirmServerView(TransactionTestCase):
         self.username = 'test_user'
         self.password = 'asdf'
         self.user = User.objects.create_user(username=self.username, email='jdoe@example.com', password=self.password)
-        server_type = ServerType.objects.create(name='Unregistered')
         first_shard = Shard.objects.create(name='Shard A')
         first_region = Region.objects.create(name='Region A', shard=first_shard)
         first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
         self.server_data = {
             'uuid': '00000000-0000-0000-0000-000000000001',
-            'type': server_type,
+            'type': Server.TYPE_UNREGISTERED,
             'shard': first_shard,
             'region': first_region,
             'owner': first_agent,
@@ -435,13 +392,17 @@ class ConfirmServerView(TransactionTestCase):
     def test_normal_confirmation_loggedin(self):
         self.client.login(username=self.username, password=self.password)
         response = self.client.get(reverse('server:confirm'), {'auth_token': self.server_data['auth_token']})
+        first_server = Server.objects.first()
         self.assertEquals(response.status_code, 200)
         self.assertTrue('Success' in response.json())
-        self.assertEquals(Server.objects.first().user, self.user)
-        self.assertNotEquals(Server.objects.first().auth_token, self.server_data['auth_token'])
+        self.assertEquals(first_server.user, self.user)
+        self.assertNotEquals(first_server.auth_token, self.server_data['auth_token'])
+        self.assertEquals(first_server.type, Server.TYPE_DEFAULT)
 
     def test_normal_confirmation_not_loggedin(self):
         response = self.client.get(reverse('server:confirm'), {'auth_token': self.server_data['auth_token']})
+        first_server = Server.objects.first()
         self.assertEquals(response.status_code, 200)
         self.assertTrue('Error' in response.json())
-        self.assertEquals(Server.objects.first().user, None)
+        self.assertEquals(first_server.user, None)
+        self.assertEquals(first_server.type, Server.TYPE_UNREGISTERED)
