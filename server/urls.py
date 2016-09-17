@@ -8,4 +8,5 @@ urlpatterns = [
     url(r'^$', views.IndexView.as_view(), name='index'),
     url(r'^register/$', views.RegisterView.as_view(), name='register'),
     url(r'^update/$', views.UpdateView.as_view(), name='update'),
+    url(r'^confirm/$', views.ConfirmView.as_view(), name='confirm')
 ]

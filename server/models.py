@@ -1,9 +1,11 @@
+import binascii
+import os
+
 from django.db import models
 from django.core.validators import RegexValidator
 from django.contrib.auth.models import User
 
 # Create your models here.
-
 
 class ServerType(models.Model):
     name = models.CharField(max_length=64, unique=True)
@@ -39,6 +41,34 @@ class Agent(models.Model):
 
 
 class Server(models.Model):
+    @staticmethod
+    def generate_auth_token():
+        token = None
+        for i in range(0, 10):
+            token = binascii.hexlify(os.urandom(16)).decode('utf-8')
+            if Server.objects.filter(auth_token=token).count() != 0:
+                token = None
+            else:
+                break
+        return token
+
+    @staticmethod
+    def generate_public_token():
+        token = None
+        for i in range(0, 10):
+            token = binascii.hexlify(os.urandom(16)).decode('utf-8')
+            if Server.objects.filter(public_token=token).count() != 0:
+                token = None
+            else:
+                break
+        return token
+
+    def regenerate_auth_token(self):
+        self.auth_token = self.generate_auth_token()
+
+    def regenerate_public_token(self):
+        self.public_token = self.generate_public_token()
+
     uuid = models.CharField(max_length=36, unique=True, validators=[
         RegexValidator(
             regex='^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$',

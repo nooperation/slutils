@@ -1,4 +1,4 @@
-from django.test import TransactionTestCase
+from django.test import TransactionTestCase, Client
 from django.db import IntegrityError
 from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
@@ -390,3 +390,58 @@ class UpdateViewTests(TransactionTestCase):
             self.assertTrue('Error' in response.json())
             first_server = Server.objects.first()
             self.assertEquals(first_server.address, self.server_data['address'])
+
+
+class ConfirmServerView(TransactionTestCase):
+    def setUp(self):
+        self.username = 'test_user'
+        self.password = 'asdf'
+        self.user = User.objects.create_user(username=self.username, email='jdoe@example.com', password=self.password)
+        server_type = ServerType.objects.create(name='Unregistered')
+        first_shard = Shard.objects.create(name='Shard A')
+        first_region = Region.objects.create(name='Region A', shard=first_shard)
+        first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
+        self.server_data = {
+            'uuid': '00000000-0000-0000-0000-000000000001',
+            'type': server_type,
+            'shard': first_shard,
+            'region': first_region,
+            'owner': first_agent,
+            'name': 'Server B',
+            'auth_token': '11111111111111111111111111111111',
+            'public_token': '10101010101010101010101010101010',
+            'address': 'http://localhost/foo/bar/baz',
+            'position_x': 4.44,
+            'position_y': 5.55,
+            'position_z': 6.66,
+            'enabled': False
+        }
+        self.test_server = Server.objects.create(
+            uuid=self.server_data['uuid'],
+            type=self.server_data['type'],
+            shard=self.server_data['shard'],
+            region=self.server_data['region'],
+            owner=self.server_data['owner'],
+            name=self.server_data['name'],
+            address=self.server_data['address'],
+            auth_token=self.server_data['auth_token'],
+            public_token=self.server_data['public_token'],
+            position_x=self.server_data['position_x'],
+            position_y=self.server_data['position_y'],
+            position_z=self.server_data['position_z'],
+            enabled=self.server_data['enabled']
+        )
+
+    def test_normal_confirmation_loggedin(self):
+        self.client.login(username=self.username, password=self.password)
+        response = self.client.get(reverse('server:confirm'), {'auth_token': self.server_data['auth_token']})
+        self.assertEquals(response.status_code, 200)
+        self.assertTrue('Success' in response.json())
+        self.assertEquals(Server.objects.first().user, self.user)
+        self.assertNotEquals(Server.objects.first().auth_token, self.server_data['auth_token'])
+
+    def test_normal_confirmation_not_loggedin(self):
+        response = self.client.get(reverse('server:confirm'), {'auth_token': self.server_data['auth_token']})
+        self.assertEquals(response.status_code, 200)
+        self.assertTrue('Error' in response.json())
+        self.assertEquals(Server.objects.first().user, None)

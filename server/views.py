@@ -4,7 +4,6 @@ from .models import *
 import os
 import binascii
 
-
 class IndexView(generic.ListView):
     def get_queryset(self):
         return Server.objects.all()[:100]
@@ -30,24 +29,8 @@ class RegisterView(generic.View):
         region, created = Region.objects.get_or_create(shard=shard, name=region_name)
         owner, created = Agent.objects.get_or_create(shard=shard, name=owner_name, uuid=owner_key)
         server_type, created = ServerType.objects.get_or_create(name='Unassigned')
-        auth_token = None
-        public_token = None
-
-        for i in range(0, 10):
-            auth_token = binascii.hexlify(os.urandom(16)).decode('utf-8')
-            if Server.objects.filter(auth_token=auth_token).count() != 0:
-                print('auth_token already taken')
-                auth_token = None
-            else:
-                break
-
-        for i in range(0, 10):
-            public_token = binascii.hexlify(os.urandom(16)).decode('utf-8')
-            if Server.objects.filter(public_token=public_token).count() != 0:
-                print('public_token already taken')
-                public_token = None
-            else:
-                break
+        auth_token = Server.generate_auth_token()
+        public_token = Server.generate_public_token()
 
         if auth_token is None or public_token is None:
             return JsonResponse({'Error': 'Failed to generate auth tokens'})
@@ -91,3 +74,25 @@ class UpdateView(generic.View):
         existing_server.save()
 
         return JsonResponse({'Success': 'OK'})
+
+
+class ConfirmView(generic.View):
+    def get(self, request):
+        auth_token = request.GET.get('auth_token')
+
+        if not all(item is not None for item in [auth_token]):
+            return JsonResponse({'Error': 'One or more missing arguments'})
+
+        if request.user.is_authenticated():
+            existing_server = Server.objects.filter(auth_token=auth_token).first()
+            if existing_server is None:
+                return JsonResponse({'Error': 'Invalid server'})
+            elif existing_server.user is not None:
+                return JsonResponse({'Error': 'Server already registered'})
+            else:
+                existing_server.regenerate_auth_token()
+                existing_server.user = request.user
+                existing_server.save()
+                return JsonResponse({'Success': 'OK'})
+        else:
+            return JsonResponse({'Error': 'Not logged in'})
