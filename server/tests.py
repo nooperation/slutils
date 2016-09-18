@@ -1,7 +1,8 @@
-from django.test import TransactionTestCase, Client
+from django.test import TransactionTestCase
 from django.db import IntegrityError
 from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
+
 from .models import *
 
 
@@ -187,7 +188,7 @@ class ServerTests(TransactionTestCase):
                 'name': 'Server A',
                 'auth_token': '11111111111111111111111111111111',
                 'public_token': '10101010101010101010101010101010',
-                'address': 'http://localhost/asdf',
+                'address': 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok',
                 'position_x': 1.23,
                 'position_y': 2.34,
                 'position_z': 3.45,
@@ -202,7 +203,7 @@ class ServerTests(TransactionTestCase):
                 'name': 'Server B',
                 'auth_token': '22222222222222222222222222222222',
                 'public_token': '20202020202020202020202020202020',
-                'address': 'http://localhost/foo/bar/baz',
+                'address': 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_2_ok',
                 'position_x': 4.44,
                 'position_y': 5.55,
                 'position_z': 6.66,
@@ -242,7 +243,7 @@ class RegisterViewTests(TransactionTestCase):
             'object_key': '00000000-0000-0000-0000-000000000001',
             'object_name': 'Object name goes here',
             'region': 'Test_region',
-            'address': 'http://google.com/foo/bar',
+            'address': 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok',
             'x': 1.2345,
             'y': 2.3456,
             'z': 3.4567
@@ -301,7 +302,7 @@ class UpdateViewTests(TransactionTestCase):
             'name': 'Server B',
             'auth_token': '11111111111111111111111111111111',
             'public_token': '10101010101010101010101010101010',
-            'address': 'http://localhost/foo/bar/baz',
+            'address': 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok',
             'position_x': 4.44,
             'position_y': 5.55,
             'position_z': 6.66,
@@ -324,7 +325,7 @@ class UpdateViewTests(TransactionTestCase):
         )
 
     def test_normal_update(self):
-        new_address = 'http://example.com'
+        new_address = 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok'
         response = self.client.post(reverse('server:update'), {'auth_token': self.test_server.auth_token, 'address': new_address})
         self.assertEquals(response.status_code, 200)
         self.assertTrue('Success' in response.json())
@@ -341,7 +342,7 @@ class UpdateViewTests(TransactionTestCase):
             None
         ]
 
-        new_address = 'http://example.com'
+        new_address = 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_2_ok'
 
         for invalid_auth_token in invalid_auth_tokens:
             response = self.client.post(reverse('server:update'), {'auth_token': invalid_auth_token, 'address': new_address})
@@ -367,7 +368,7 @@ class ConfirmServerView(TransactionTestCase):
             'name': 'Server B',
             'auth_token': '11111111111111111111111111111111',
             'public_token': '10101010101010101010101010101010',
-            'address': 'http://localhost/foo/bar/baz',
+            'address': 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok',
             'position_x': 4.44,
             'position_y': 5.55,
             'position_z': 6.66,
@@ -394,15 +395,11 @@ class ConfirmServerView(TransactionTestCase):
         response = self.client.get(reverse('server:confirm'), {'auth_token': self.server_data['auth_token']})
         first_server = Server.objects.first()
         self.assertEquals(response.status_code, 200)
-        self.assertTrue('Success' in response.json())
+        self.assertContains(response, 'Success')
         self.assertEquals(first_server.user, self.user)
         self.assertNotEquals(first_server.auth_token, self.server_data['auth_token'])
         self.assertEquals(first_server.type, Server.TYPE_DEFAULT)
 
     def test_normal_confirmation_not_loggedin(self):
         response = self.client.get(reverse('server:confirm'), {'auth_token': self.server_data['auth_token']})
-        first_server = Server.objects.first()
-        self.assertEquals(response.status_code, 200)
-        self.assertTrue('Error' in response.json())
-        self.assertEquals(first_server.user, None)
-        self.assertEquals(first_server.type, Server.TYPE_UNREGISTERED)
+        self.assertRedirects(response, reverse('login') + '?next=/server/confirm/%3Fauth_token%3D' + self.server_data['auth_token'])

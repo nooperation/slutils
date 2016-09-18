@@ -1,8 +1,9 @@
-from django.http import Http404, JsonResponse
+from django.http import JsonResponse, HttpResponse
+from django.shortcuts import render
 from django.views import generic
 from .models import *
-import os
-import binascii
+import requests
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 class IndexView(generic.ListView):
     def get_queryset(self):
@@ -75,24 +76,30 @@ class UpdateView(generic.View):
         return JsonResponse({'Success': 'OK'})
 
 
-class ConfirmView(generic.View):
+class ConfirmView(LoginRequiredMixin, generic.View):
     def get(self, request):
         auth_token = request.GET.get('auth_token')
 
         if not all(item is not None for item in [auth_token]):
-            return JsonResponse({'Error': 'One or more missing arguments'})
+            return render(request, 'server/confirm.html', {'error': 'One or more missing arguments'})
 
         if request.user.is_authenticated():
             existing_server = Server.objects.filter(auth_token=auth_token).first()
             if existing_server is None:
-                return JsonResponse({'Error': 'Invalid server'})
+                return render(request, 'server/confirm.html', {'error': 'Auth token does not belong to any unregistered servers.'})
             elif existing_server.user is not None:
-                return JsonResponse({'Error': 'Server already registered'})
+                return render(request, 'server/confirm.html', {'error': 'Server already registered.'})
             else:
+                # Can we actually read from the server...
+                server_request = requests.get(existing_server.address)
+                status = server_request.status_code
+                if status != 200 or server_request.text != 'OK.':
+                    return render(request, 'server/confirm.html', {'error': 'Unable to contact server.'})
+
                 existing_server.type = Server.TYPE_DEFAULT
                 existing_server.regenerate_auth_token()
                 existing_server.user = request.user
                 existing_server.save()
-                return JsonResponse({'Success': 'OK'})
+                return render(request, 'server/confirm.html', {'success': 'You have successfully registered this server.'})
         else:
-            return JsonResponse({'Error': 'Not logged in'})
+            return render(request, 'server/confirm.html', {'error': 'Not logged in.'})
