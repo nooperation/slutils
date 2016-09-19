@@ -1,4 +1,4 @@
-from django.test import TransactionTestCase
+from django.test import TransactionTestCase,TestCase
 from django.db import IntegrityError
 from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
@@ -171,7 +171,7 @@ class AgentTests(TransactionTestCase):
                 Agent(name=agent['name'], uuid=agent['uuid'], shard=agent['shard']).full_clean()
 
 
-class ServerTests(TransactionTestCase):
+class ServerTests(TestCase):
     def setUp(self):
         self.first_shard = Shard.objects.create(name='Shard A')
         self.first_region = Region.objects.create(name='Region A', shard=self.first_shard)
@@ -288,7 +288,7 @@ class RegisterViewTests(TransactionTestCase):
         self.assertEquals(Server.objects.count(), 0)
 
 
-class UpdateViewTests(TransactionTestCase):
+class UpdateViewTests(TestCase):
     def setUp(self):
         first_shard = Shard.objects.create(name='Shard A')
         first_region = Region.objects.create(name='Region A', shard=first_shard)
@@ -351,55 +351,102 @@ class UpdateViewTests(TransactionTestCase):
             self.assertEquals(first_server.address, self.server_data['address'])
 
 
-class ConfirmServerView(TransactionTestCase):
+class ConfirmServerView(TestCase):
     def setUp(self):
         self.username = 'test_user'
         self.password = 'asdf'
         self.user = User.objects.create_user(username=self.username, email='jdoe@example.com', password=self.password)
+        self.auth_token = '11111111111111111111111111111111'
         first_shard = Shard.objects.create(name='Shard A')
         first_region = Region.objects.create(name='Region A', shard=first_shard)
         first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
-        self.server_data = {
-            'uuid': '00000000-0000-0000-0000-000000000001',
-            'type': Server.TYPE_UNREGISTERED,
-            'shard': first_shard,
-            'region': first_region,
-            'owner': first_agent,
-            'name': 'Server B',
-            'auth_token': '11111111111111111111111111111111',
-            'public_token': '10101010101010101010101010101010',
-            'address': 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok',
-            'position_x': 4.44,
-            'position_y': 5.55,
-            'position_z': 6.66,
-            'enabled': False
-        }
         self.test_server = Server.objects.create(
-            uuid=self.server_data['uuid'],
-            type=self.server_data['type'],
-            shard=self.server_data['shard'],
-            region=self.server_data['region'],
-            owner=self.server_data['owner'],
-            name=self.server_data['name'],
-            address=self.server_data['address'],
-            auth_token=self.server_data['auth_token'],
-            public_token=self.server_data['public_token'],
-            position_x=self.server_data['position_x'],
-            position_y=self.server_data['position_y'],
-            position_z=self.server_data['position_z'],
-            enabled=self.server_data['enabled']
+            uuid='00000000-0000-0000-0000-000000000001',
+            type=Server.TYPE_UNREGISTERED,
+            shard=first_shard,
+            region=first_region,
+            owner=first_agent,
+            name='Server B',
+            address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok',
+            auth_token=self.auth_token,
+            public_token='10101010101010101010101010101010',
+            position_x=4.44,
+            position_y=5.55,
+            position_z=6.66,
+            enabled=False
         )
 
     def test_normal_confirmation_loggedin(self):
         self.client.login(username=self.username, password=self.password)
-        response = self.client.get(reverse('server:confirm'), {'auth_token': self.server_data['auth_token']})
+        response = self.client.get(reverse('server:confirm', kwargs={'auth_token': self.auth_token}))
         first_server = Server.objects.first()
         self.assertEquals(response.status_code, 200)
         self.assertContains(response, 'Success')
         self.assertEquals(first_server.user, self.user)
-        self.assertNotEquals(first_server.auth_token, self.server_data['auth_token'])
+        self.assertNotEquals(first_server.auth_token, self.auth_token)
         self.assertEquals(first_server.type, Server.TYPE_DEFAULT)
 
     def test_normal_confirmation_not_loggedin(self):
-        response = self.client.get(reverse('server:confirm'), {'auth_token': self.server_data['auth_token']})
-        self.assertRedirects(response, reverse('login') + '?next=/server/confirm/%3Fauth_token%3D' + self.server_data['auth_token'])
+        requested_url = reverse('server:confirm', kwargs={'auth_token': self.auth_token})
+        response = self.client.get(requested_url)
+        self.assertRedirects(response, reverse('login') + '?next=' + requested_url)
+
+
+class SetEnabledView(TestCase):
+    def setUp(self):
+        self.username = 'test_user'
+        self.password = 'asdf'
+        self.user = User.objects.create_user(username=self.username, email='jdoe@example.com', password=self.password)
+        self.auth_token = '11111111111111111111111111111111'
+        self.public_token = '10101010101010101010101010101010'
+        first_shard = Shard.objects.create(name='Shard A')
+        first_region = Region.objects.create(name='Region A', shard=first_shard)
+        first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
+        self.test_server = Server.objects.create(
+            uuid='00000000-0000-0000-0000-000000000001',
+            type=Server.TYPE_UNREGISTERED,
+            shard=first_shard,
+            region=first_region,
+            owner=first_agent,
+            user=self.user,
+            name='Server B',
+            address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok',
+            auth_token=self.auth_token,
+            public_token=self.public_token,
+            position_x=4.44,
+            position_y=5.55,
+            position_z=6.66,
+            enabled=False
+        )
+
+    def test_normal_usage(self):
+        self.client.login(username=self.username, password=self.password)
+        self.assertFalse(Server.objects.first().enabled)
+
+        # We should be able to successfully enable the server we own.
+        response = self.client.get(reverse('server:set_enabled', kwargs={'public_token': self.public_token, 'enabled': True}))
+        self.assertTrue('success' in response.json())
+        self.assertTrue(Server.objects.first().enabled)
+
+        # We should be able to successfully disable the server we own.
+        response = self.client.get(reverse('server:set_enabled', kwargs={'public_token': self.public_token, 'enabled': False}))
+        self.assertTrue('success' in response.json())
+        self.assertFalse(Server.objects.first().enabled)
+
+    def test_invalid_server(self):
+        username2 = 'foobar'
+        password2 = 'a'
+        self.user2 = User.objects.create_user(username=username2, email='example@example.com', password=password2)
+        self.client.login(username=username2, password=password2)
+        self.assertFalse(Server.objects.first().enabled)
+
+        # Attempting to change a server we don't own should result in error and have no effect on the server.
+        response = self.client.get(reverse('server:set_enabled', kwargs={'public_token': self.public_token, 'enabled': True}))
+        self.assertTrue('error' in response.json())
+        self.assertFalse(Server.objects.first().enabled)
+
+    def test_not_logged_in(self):
+        # Attempting to modify a server when not logged in should result in a redirect to login.
+        requested_url = reverse('server:set_enabled', kwargs={'public_token': self.public_token, 'enabled': True})
+        response = self.client.get(requested_url)
+        self.assertRedirects(response, reverse('login') + '?next=' + requested_url)

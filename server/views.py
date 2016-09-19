@@ -5,9 +5,10 @@ from .models import *
 import requests
 from django.contrib.auth.mixins import LoginRequiredMixin
 
-class IndexView(generic.ListView):
-    def get_queryset(self):
-        return Server.objects.all()[:100]
+
+class IndexView(LoginRequiredMixin, generic.View):
+    def get(self, request):
+        return render(request, 'server/server_list.html', {'servers_list': Server.objects.filter(user=request.user)})
 
 
 class RegisterView(generic.View):
@@ -77,29 +78,54 @@ class UpdateView(generic.View):
 
 
 class ConfirmView(LoginRequiredMixin, generic.View):
-    def get(self, request):
-        auth_token = request.GET.get('auth_token')
-
-        if not all(item is not None for item in [auth_token]):
-            return render(request, 'server/confirm.html', {'error': 'One or more missing arguments'})
-
-        if request.user.is_authenticated():
-            existing_server = Server.objects.filter(auth_token=auth_token).first()
-            if existing_server is None:
-                return render(request, 'server/confirm.html', {'error': 'Auth token does not belong to any unregistered servers.'})
-            elif existing_server.user is not None:
-                return render(request, 'server/confirm.html', {'error': 'Server already registered.'})
-            else:
-                # Can we actually read from the server...
-                server_request = requests.get(existing_server.address)
-                status = server_request.status_code
-                if status != 200 or server_request.text != 'OK.':
-                    return render(request, 'server/confirm.html', {'error': 'Unable to contact server.'})
-
-                existing_server.type = Server.TYPE_DEFAULT
-                existing_server.regenerate_auth_token()
-                existing_server.user = request.user
-                existing_server.save()
-                return render(request, 'server/confirm.html', {'success': 'You have successfully registered this server.'})
+    def get(self, request, auth_token):
+        existing_server = Server.objects.filter(auth_token=auth_token).first()
+        if existing_server is None:
+            return render(request, 'server/confirm.html', {'error': 'Auth token does not belong to any unregistered servers.'})
+        elif existing_server.user is not None:
+            return render(request, 'server/confirm.html', {'error': 'Server already registered.'})
         else:
-            return render(request, 'server/confirm.html', {'error': 'Not logged in.'})
+            # Can we actually read from the server...
+            server_request = requests.get(existing_server.address)
+            status = server_request.status_code
+            if status != 200 or server_request.text != 'OK.':
+                return render(request, 'server/confirm.html', {'error': 'Unable to contact server.'})
+
+            existing_server.type = Server.TYPE_DEFAULT
+            existing_server.regenerate_auth_token()
+            existing_server.user = request.user
+            existing_server.save()
+            return render(request, 'server/confirm.html', {'success': 'You have successfully registered this server.'})
+
+
+class RegenerateTokensView(LoginRequiredMixin, generic.View):
+    def get(self, request):
+        public_token = request.GET['public_token']
+        mode = request.GET['mode']
+
+        server = Server.objects.filter(user=request.user).filter(public_token=public_token).first()
+        if server is None:
+            return JsonResponse({'error': 'Invalid server'})
+
+        if mode == 'auth':
+            server.regenerate_auth_token()
+        elif mode == 'public':
+            server.regenerate_public_token()
+        elif mode == 'both':
+            server.regenerate_auth_token()
+            server.regenerate_public_token()
+        else:
+            return JsonResponse({'error': 'Invalid mode specified'})
+
+        return JsonResponse({'success': 'Successfully regenerated {} token(s)'.format(mode)})
+
+
+class SetEnabledView(LoginRequiredMixin, generic.View):
+    def get(self, request, public_token, enabled):
+        server = Server.objects.filter(user=request.user).filter(public_token=public_token).first()
+        if server is None:
+            return JsonResponse({'error': 'Invalid server'})
+
+        server.enabled = enabled
+        server.save()
+        return JsonResponse({'success': 'Server enabled set to {}.'.format(enabled)})
