@@ -98,28 +98,6 @@ class ConfirmView(LoginRequiredMixin, generic.View):
             return render(request, 'server/confirm.html', {'success': 'You have successfully registered this server.'})
 
 
-class RegenerateTokensView(LoginRequiredMixin, generic.View):
-    def get(self, request):
-        public_token = request.GET['public_token']
-        mode = request.GET['mode']
-
-        server = Server.objects.filter(user=request.user).filter(public_token=public_token).first()
-        if server is None:
-            return JsonResponse({'error': 'Invalid server'})
-
-        if mode == 'auth':
-            server.regenerate_auth_token()
-        elif mode == 'public':
-            server.regenerate_public_token()
-        elif mode == 'both':
-            server.regenerate_auth_token()
-            server.regenerate_public_token()
-        else:
-            return JsonResponse({'error': 'Invalid mode specified'})
-
-        return JsonResponse({'success': 'Successfully regenerated {} token(s)'.format(mode)})
-
-
 class SetEnabledView(LoginRequiredMixin, generic.View):
     def get(self, request, public_token, enabled):
         server = Server.objects.filter(user=request.user).filter(public_token=public_token).first()
@@ -129,3 +107,23 @@ class SetEnabledView(LoginRequiredMixin, generic.View):
         server.enabled = enabled
         server.save()
         return JsonResponse({'success': 'Server enabled set to {}.'.format(enabled)})
+
+
+class RegenerateTokensView(LoginRequiredMixin, generic.View):
+    def get(self, request, public_token, token_type):
+        server = Server.objects.filter(user=request.user).filter(public_token=public_token).first()
+        if server is None:
+            return JsonResponse({'error': 'Invalid server'})
+
+        if token_type == 'public':
+            server.regenerate_public_token()
+        elif token_type == 'auth':
+            server.regenerate_auth_token()
+        elif token_type == 'both':
+            server.regenerate_auth_token()
+            server.regenerate_public_token()
+        else:
+            return JsonResponse({'error': 'Invalid token type specified'})
+
+        server.save()
+        return JsonResponse({'success': 'Successfully regenerated {} token(s)'.format(token_type)})

@@ -450,3 +450,84 @@ class SetEnabledView(TestCase):
         requested_url = reverse('server:set_enabled', kwargs={'public_token': self.public_token, 'enabled': True})
         response = self.client.get(requested_url)
         self.assertRedirects(response, reverse('login') + '?next=' + requested_url)
+
+
+class RegenerateTokenViewTests(TestCase):
+    def setUp(self):
+        self.token_types = ['auth', 'public', 'both']
+        self.username = 'test_user'
+        self.password = 'asdf'
+        self.user = User.objects.create_user(username=self.username, email='jdoe@example.com', password=self.password)
+        self.auth_token = '11111111111111111111111111111111'
+        self.public_token = '10101010101010101010101010101010'
+        first_shard = Shard.objects.create(name='Shard A')
+        first_region = Region.objects.create(name='Region A', shard=first_shard)
+        first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
+        self.test_server = Server.objects.create(
+            uuid='00000000-0000-0000-0000-000000000001',
+            type=Server.TYPE_UNREGISTERED,
+            shard=first_shard,
+            region=first_region,
+            owner=first_agent,
+            user=self.user,
+            name='Server B',
+            address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok',
+            auth_token=self.auth_token,
+            public_token=self.public_token,
+            position_x=4.44,
+            position_y=5.55,
+            position_z=6.66,
+            enabled=False
+        )
+
+    def test_normal_usage(self):
+        self.client.login(username=self.username, password=self.password)
+
+        # Regenerate only the public token then restore the server to its original state.
+        response = self.client.get(reverse('server:regenerate_tokens', kwargs={'public_token': self.public_token, 'token_type': 'public'}))
+        self.assertTrue('success' in response.json())
+        self.assertNotEqual(Server.objects.first().public_token, self.public_token)
+        self.assertEqual(Server.objects.first().auth_token, self.auth_token)
+        self.test_server.save()
+
+        # Regenerate only the auth token then restore the server to its original state.
+        response = self.client.get(reverse('server:regenerate_tokens', kwargs={'public_token': self.public_token, 'token_type': 'auth'}))
+        self.assertTrue('success' in response.json())
+        self.assertEqual(Server.objects.first().public_token, self.public_token)
+        self.assertNotEqual(Server.objects.first().auth_token, self.auth_token)
+        self.test_server.save()
+
+        # Regenerate both tokens then restore the server to its original state.
+        response = self.client.get(reverse('server:regenerate_tokens', kwargs={'public_token': self.public_token, 'token_type': 'both'}))
+        self.assertTrue('success' in response.json())
+        self.assertNotEqual(Server.objects.first().public_token, self.public_token)
+        self.assertNotEqual(Server.objects.first().auth_token, self.auth_token)
+        self.test_server.save()
+
+    def test_invalid_server(self):
+        username2 = 'foobar'
+        password2 = 'a'
+        self.user2 = User.objects.create_user(username=username2, email='example@example.com', password=password2)
+        self.client.login(username=username2, password=password2)
+
+        # Attempting to change a server we don't own should result in error and have no effect on the server.
+        for token_type in self.token_types:
+            response = self.client.get(reverse('server:regenerate_tokens', kwargs={'public_token': self.public_token, 'token_type': token_type}))
+            self.assertTrue('error' in response.json())
+
+        # Tokens must not change.
+        first_server = Server.objects.first()
+        self.assertEquals(first_server.auth_token, self.auth_token)
+        self.assertEquals(first_server.public_token, self.public_token)
+
+    def test_not_logged_in(self):
+        # Attempting to modify a server when not logged in should result in a redirect to login.
+        for token_type in self.token_types:
+            requested_url = reverse('server:regenerate_tokens', kwargs={'public_token': self.public_token, 'token_type': token_type})
+            response = self.client.get(requested_url)
+            self.assertRedirects(response, reverse('login') + '?next=' + requested_url)
+
+        # Tokens must not change.
+        first_server = Server.objects.first()
+        self.assertEquals(first_server.auth_token, self.auth_token)
+        self.assertEquals(first_server.public_token, self.public_token)
