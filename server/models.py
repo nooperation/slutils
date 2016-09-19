@@ -30,8 +30,8 @@ class Agent(models.Model):
         ),
     ])
     shard = models.ForeignKey(Shard, on_delete=models.DO_NOTHING)
-    auth_token = models.CharField(max_length=64, null=True, blank=True)
-    auth_token_date = models.DateTimeField(null=True, blank=True)
+    private_token = models.CharField(max_length=64, null=True, blank=True)
+    private_token_date = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = ('uuid', 'shard')
@@ -48,11 +48,11 @@ class Server(models.Model):
     )
 
     @staticmethod
-    def generate_auth_token():
+    def generate_private_token():
         token = None
         for i in range(0, 10):
             token = binascii.hexlify(os.urandom(16)).decode('utf-8')
-            if Server.objects.filter(auth_token=token).count() != 0:
+            if Server.objects.filter(private_token=token).count() != 0:
                 token = None
             else:
                 break
@@ -69,8 +69,8 @@ class Server(models.Model):
                 break
         return token
 
-    def regenerate_auth_token(self):
-        self.auth_token = self.generate_auth_token()
+    def regenerate_private_token(self):
+        self.private_token = self.generate_private_token()
 
     def regenerate_public_token(self):
         self.public_token = self.generate_public_token()
@@ -88,7 +88,7 @@ class Server(models.Model):
     owner = models.ForeignKey(Agent, on_delete=models.DO_NOTHING)
     user = models.ForeignKey(User, on_delete=models.DO_NOTHING, null=True, blank=True)
     address = models.URLField()
-    auth_token = models.CharField(max_length=64, unique=True)
+    private_token = models.CharField(max_length=64, unique=True)
     public_token = models.CharField(max_length=64, unique=True)
     name = models.CharField(max_length=255)
     position_x = models.FloatField()

@@ -186,7 +186,7 @@ class ServerTests(TestCase):
                 'region': self.first_region,
                 'owner': self.first_agent,
                 'name': 'Server A',
-                'auth_token': '11111111111111111111111111111111',
+                'private_token': '11111111111111111111111111111111',
                 'public_token': '10101010101010101010101010101010',
                 'address': 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok',
                 'position_x': 1.23,
@@ -201,7 +201,7 @@ class ServerTests(TestCase):
                 'region': self.first_region,
                 'owner': self.first_agent,
                 'name': 'Server B',
-                'auth_token': '22222222222222222222222222222222',
+                'private_token': '22222222222222222222222222222222',
                 'public_token': '20202020202020202020202020202020',
                 'address': 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_2_ok',
                 'position_x': 4.44,
@@ -221,7 +221,7 @@ class ServerTests(TestCase):
                 owner=valid_server['owner'],
                 name=valid_server['name'],
                 address=valid_server['address'],
-                auth_token=valid_server['auth_token'],
+                private_token=valid_server['private_token'],
                 public_token=valid_server['public_token'],
                 position_x=valid_server['position_x'],
                 position_y=valid_server['position_y'],
@@ -300,7 +300,7 @@ class UpdateViewTests(TestCase):
             'region': first_region,
             'owner': first_agent,
             'name': 'Server B',
-            'auth_token': '11111111111111111111111111111111',
+            'private_token': '11111111111111111111111111111111',
             'public_token': '10101010101010101010101010101010',
             'address': 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok',
             'position_x': 4.44,
@@ -316,7 +316,7 @@ class UpdateViewTests(TestCase):
             owner=self.server_data['owner'],
             name=self.server_data['name'],
             address=self.server_data['address'],
-            auth_token=self.server_data['auth_token'],
+            private_token=self.server_data['private_token'],
             public_token=self.server_data['public_token'],
             position_x=self.server_data['position_x'],
             position_y=self.server_data['position_y'],
@@ -326,7 +326,7 @@ class UpdateViewTests(TestCase):
 
     def test_normal_update(self):
         new_address = 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok'
-        response = self.client.post(reverse('server:update'), {'auth_token': self.test_server.auth_token, 'address': new_address})
+        response = self.client.post(reverse('server:update'), {'private_token': self.test_server.private_token, 'address': new_address})
         self.assertEquals(response.status_code, 200)
         self.assertTrue('Success' in response.json())
         self.assertEquals(Server.objects.count(), 1)
@@ -334,8 +334,8 @@ class UpdateViewTests(TestCase):
         first_server = Server.objects.first()
         self.assertEquals(first_server.address, new_address)
 
-    def test_invalid_auth_token_update(self):
-        invalid_auth_tokens = [
+    def test_invalid_private_token_update(self):
+        invalid_private_tokens = [
             self.test_server.public_token,
             '00000000000000000000000000000000',
             '',
@@ -344,8 +344,8 @@ class UpdateViewTests(TestCase):
 
         new_address = 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_2_ok'
 
-        for invalid_auth_token in invalid_auth_tokens:
-            response = self.client.post(reverse('server:update'), {'auth_token': invalid_auth_token, 'address': new_address})
+        for invalid_private_token in invalid_private_tokens:
+            response = self.client.post(reverse('server:update'), {'private_token': invalid_private_token, 'address': new_address})
             self.assertTrue('Error' in response.json())
             first_server = Server.objects.first()
             self.assertEquals(first_server.address, self.server_data['address'])
@@ -356,7 +356,7 @@ class ConfirmServerView(TestCase):
         self.username = 'test_user'
         self.password = 'asdf'
         self.user = User.objects.create_user(username=self.username, email='jdoe@example.com', password=self.password)
-        self.auth_token = '11111111111111111111111111111111'
+        self.private_token = '11111111111111111111111111111111'
         first_shard = Shard.objects.create(name='Shard A')
         first_region = Region.objects.create(name='Region A', shard=first_shard)
         first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
@@ -368,7 +368,7 @@ class ConfirmServerView(TestCase):
             owner=first_agent,
             name='Server B',
             address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok',
-            auth_token=self.auth_token,
+            private_token=self.private_token,
             public_token='10101010101010101010101010101010',
             position_x=4.44,
             position_y=5.55,
@@ -378,16 +378,16 @@ class ConfirmServerView(TestCase):
 
     def test_normal_confirmation_loggedin(self):
         self.client.login(username=self.username, password=self.password)
-        response = self.client.get(reverse('server:confirm', kwargs={'auth_token': self.auth_token}))
+        response = self.client.get(reverse('server:confirm', kwargs={'private_token': self.private_token}))
         first_server = Server.objects.first()
         self.assertEquals(response.status_code, 200)
         self.assertContains(response, 'Success')
         self.assertEquals(first_server.user, self.user)
-        self.assertNotEquals(first_server.auth_token, self.auth_token)
+        self.assertNotEquals(first_server.private_token, self.private_token)
         self.assertEquals(first_server.type, Server.TYPE_DEFAULT)
 
     def test_normal_confirmation_not_loggedin(self):
-        requested_url = reverse('server:confirm', kwargs={'auth_token': self.auth_token})
+        requested_url = reverse('server:confirm', kwargs={'private_token': self.private_token})
         response = self.client.get(requested_url)
         self.assertRedirects(response, reverse('login') + '?next=' + requested_url)
 
@@ -397,7 +397,7 @@ class SetEnabledView(TestCase):
         self.username = 'test_user'
         self.password = 'asdf'
         self.user = User.objects.create_user(username=self.username, email='jdoe@example.com', password=self.password)
-        self.auth_token = '11111111111111111111111111111111'
+        self.private_token = '11111111111111111111111111111111'
         self.public_token = '10101010101010101010101010101010'
         first_shard = Shard.objects.create(name='Shard A')
         first_region = Region.objects.create(name='Region A', shard=first_shard)
@@ -411,7 +411,7 @@ class SetEnabledView(TestCase):
             user=self.user,
             name='Server B',
             address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok',
-            auth_token=self.auth_token,
+            private_token=self.private_token,
             public_token=self.public_token,
             position_x=4.44,
             position_y=5.55,
@@ -458,7 +458,7 @@ class RegenerateTokenViewTests(TestCase):
         self.username = 'test_user'
         self.password = 'asdf'
         self.user = User.objects.create_user(username=self.username, email='jdoe@example.com', password=self.password)
-        self.auth_token = '11111111111111111111111111111111'
+        self.private_token = '11111111111111111111111111111111'
         self.public_token = '10101010101010101010101010101010'
         first_shard = Shard.objects.create(name='Shard A')
         first_region = Region.objects.create(name='Region A', shard=first_shard)
@@ -472,7 +472,7 @@ class RegenerateTokenViewTests(TestCase):
             user=self.user,
             name='Server B',
             address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok',
-            auth_token=self.auth_token,
+            private_token=self.private_token,
             public_token=self.public_token,
             position_x=4.44,
             position_y=5.55,
@@ -487,21 +487,21 @@ class RegenerateTokenViewTests(TestCase):
         response = self.client.get(reverse('server:regenerate_tokens', kwargs={'public_token': self.public_token, 'token_type': 'public'}))
         self.assertTrue('success' in response.json())
         self.assertNotEqual(Server.objects.first().public_token, self.public_token)
-        self.assertEqual(Server.objects.first().auth_token, self.auth_token)
+        self.assertEqual(Server.objects.first().private_token, self.private_token)
         self.test_server.save()
 
         # Regenerate only the auth token then restore the server to its original state.
         response = self.client.get(reverse('server:regenerate_tokens', kwargs={'public_token': self.public_token, 'token_type': 'auth'}))
         self.assertTrue('success' in response.json())
         self.assertEqual(Server.objects.first().public_token, self.public_token)
-        self.assertNotEqual(Server.objects.first().auth_token, self.auth_token)
+        self.assertNotEqual(Server.objects.first().private_token, self.private_token)
         self.test_server.save()
 
         # Regenerate both tokens then restore the server to its original state.
         response = self.client.get(reverse('server:regenerate_tokens', kwargs={'public_token': self.public_token, 'token_type': 'both'}))
         self.assertTrue('success' in response.json())
         self.assertNotEqual(Server.objects.first().public_token, self.public_token)
-        self.assertNotEqual(Server.objects.first().auth_token, self.auth_token)
+        self.assertNotEqual(Server.objects.first().private_token, self.private_token)
         self.test_server.save()
 
     def test_invalid_server(self):
@@ -517,7 +517,7 @@ class RegenerateTokenViewTests(TestCase):
 
         # Tokens must not change.
         first_server = Server.objects.first()
-        self.assertEquals(first_server.auth_token, self.auth_token)
+        self.assertEquals(first_server.private_token, self.private_token)
         self.assertEquals(first_server.public_token, self.public_token)
 
     def test_not_logged_in(self):
@@ -529,5 +529,5 @@ class RegenerateTokenViewTests(TestCase):
 
         # Tokens must not change.
         first_server = Server.objects.first()
-        self.assertEquals(first_server.auth_token, self.auth_token)
+        self.assertEquals(first_server.private_token, self.private_token)
         self.assertEquals(first_server.public_token, self.public_token)

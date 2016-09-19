@@ -30,10 +30,10 @@ class RegisterView(generic.View):
         shard, created = Shard.objects.get_or_create(name=shard_name)
         region, created = Region.objects.get_or_create(shard=shard, name=region_name)
         owner, created = Agent.objects.get_or_create(shard=shard, name=owner_name, uuid=owner_key)
-        auth_token = Server.generate_auth_token()
+        private_token = Server.generate_private_token()
         public_token = Server.generate_public_token()
 
-        if auth_token is None or public_token is None:
+        if private_token is None or public_token is None:
             return JsonResponse({'Error': 'Failed to generate auth tokens'})
 
         try:
@@ -45,7 +45,7 @@ class RegisterView(generic.View):
                 owner=owner,
                 user=None,
                 address=address,
-                auth_token=auth_token,
+                private_token=private_token,
                 public_token=public_token,
                 name=server_name,
                 position_x=position_x,
@@ -56,18 +56,18 @@ class RegisterView(generic.View):
         except Exception:
             return JsonResponse({'Error': 'Failed to create server'})
 
-        return JsonResponse({'Success': auth_token})
+        return JsonResponse({'Success': private_token})
 
 
 class UpdateView(generic.View):
     def post(self, request):
-        auth_token = request.POST.get('auth_token')
+        private_token = request.POST.get('private_token')
         address = request.POST.get('address')
 
-        if not all(item is not None for item in [auth_token, address]):
+        if not all(item is not None for item in [private_token, address]):
             return JsonResponse({'Error': 'One or more missing arguments'})
 
-        existing_server = Server.objects.filter(auth_token=auth_token).first()
+        existing_server = Server.objects.filter(private_token=private_token).first()
         if existing_server is None:
             return JsonResponse({'Error': 'No such server'})
 
@@ -78,8 +78,8 @@ class UpdateView(generic.View):
 
 
 class ConfirmView(LoginRequiredMixin, generic.View):
-    def get(self, request, auth_token):
-        existing_server = Server.objects.filter(auth_token=auth_token).first()
+    def get(self, request, private_token):
+        existing_server = Server.objects.filter(private_token=private_token).first()
         if existing_server is None:
             return render(request, 'server/confirm.html', {'error': 'Auth token does not belong to any unregistered servers.'})
         elif existing_server.user is not None:
@@ -92,7 +92,7 @@ class ConfirmView(LoginRequiredMixin, generic.View):
                 return render(request, 'server/confirm.html', {'error': 'Unable to contact server.'})
 
             existing_server.type = Server.TYPE_DEFAULT
-            existing_server.regenerate_auth_token()
+            existing_server.regenerate_private_token()
             existing_server.user = request.user
             existing_server.save()
             return render(request, 'server/confirm.html', {'success': 'You have successfully registered this server.'})
@@ -118,9 +118,9 @@ class RegenerateTokensView(LoginRequiredMixin, generic.View):
         if token_type == 'public':
             server.regenerate_public_token()
         elif token_type == 'auth':
-            server.regenerate_auth_token()
+            server.regenerate_private_token()
         elif token_type == 'both':
-            server.regenerate_auth_token()
+            server.regenerate_private_token()
             server.regenerate_public_token()
         else:
             return JsonResponse({'error': 'Invalid token type specified'})
