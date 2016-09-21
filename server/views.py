@@ -4,13 +4,15 @@ from django.views import generic
 from .models import *
 import requests
 from django.contrib.auth.mixins import LoginRequiredMixin
-
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 
 class IndexView(LoginRequiredMixin, generic.View):
     def get(self, request):
         return render(request, 'server/server_list.html', {'servers_list': Server.objects.filter(user=request.user)})
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class RegisterView(generic.View):
     def post(self, request):
         shard_name = request.POST.get('shard')
@@ -59,6 +61,7 @@ class RegisterView(generic.View):
         return JsonResponse({'Success': private_token})
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class UpdateView(generic.View):
     def post(self, request):
         private_token = request.POST.get('private_token')
