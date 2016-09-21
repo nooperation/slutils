@@ -9,10 +9,16 @@ from django.contrib.auth.models import User
 
 
 class Shard(models.Model):
+    def __str__(self):
+        return self.name
+
     name = models.CharField(max_length=255, unique=True)
 
 
 class Region(models.Model):
+    def __str__(self):
+        return self.name
+
     name = models.CharField(max_length=255)
     shard = models.ForeignKey(Shard, on_delete=models.DO_NOTHING)
 
@@ -21,6 +27,9 @@ class Region(models.Model):
 
 
 class Agent(models.Model):
+    def __str__(self):
+        return self.name
+
     name = models.CharField(max_length=64)
     uuid = models.CharField(max_length=36, validators=[
         RegexValidator(
@@ -38,6 +47,9 @@ class Agent(models.Model):
 
 
 class Server(models.Model):
+    def __str__(self):
+        return self.name
+
     TYPE_UNREGISTERED = 0
     TYPE_DEFAULT = 1
     TYPE_MAP = 2

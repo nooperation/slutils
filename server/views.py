@@ -127,3 +127,11 @@ class RegenerateTokensView(LoginRequiredMixin, generic.View):
 
         server.save()
         return JsonResponse({'success': 'Successfully regenerated {} token(s)'.format(token_type)})
+
+
+class ServerView(generic.View):
+    def get(self, request, public_token):
+        server = Server.objects.filter(public_token=public_token)
+        if server is None:
+            return render(request, 'server/view.html', {'error': 'Invalid server specified'})
+        return render(request, 'server/view.html', {'server': server})
