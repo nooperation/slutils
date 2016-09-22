@@ -37,22 +37,32 @@ class RegisterView(generic.View):
             return JsonResponse({'Error': 'Failed to generate auth tokens'})
 
         try:
-            Server.objects.create(
-                uuid=server_key,
-                type=Server.TYPE_UNREGISTERED,
-                shard=shard,
-                region=region,
-                owner=owner,
-                user=None,
-                address=address,
-                private_token=private_token,
-                public_token=public_token,
-                name=server_name,
-                position_x=position_x,
-                position_y=position_y,
-                position_z=position_z,
-                enabled=False
-            )
+            existing_server = Server.objects.filter(uuid=server_key).first()
+            if existing_server is not None:
+                if existing_server.type != Server.TYPE_UNREGISTERED:
+                    return JsonResponse({'Error': 'Server already registered'})
+                else:
+                    existing_server.regenerate_private_token()
+                    existing_server.regenerate_public_token()
+                    existing_server.save()
+                    private_token=existing_server.private_token
+            else:
+                Server.objects.create(
+                    uuid=server_key,
+                    type=Server.TYPE_UNREGISTERED,
+                    shard=shard,
+                    region=region,
+                    owner=owner,
+                    user=None,
+                    address=address,
+                    private_token=private_token,
+                    public_token=public_token,
+                    name=server_name,
+                    position_x=position_x,
+                    position_y=position_y,
+                    position_z=position_z,
+                    enabled=False
+                )
         except Exception:
             return JsonResponse({'Error': 'Failed to create server'})
 

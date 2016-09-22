@@ -1,4 +1,4 @@
-from django.test import TransactionTestCase,TestCase
+from django.test import TransactionTestCase, TestCase
 from django.db import IntegrityError
 from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
@@ -104,7 +104,7 @@ class RegionTests(TransactionTestCase):
 
         invalid_regions = [
             {'name': '', 'shard': self.first_shard},
-            {'name': 'x'*256, 'shard': self.first_shard},
+            {'name': 'x' * 256, 'shard': self.first_shard},
         ]
 
         for invalid_region in invalid_regions:
@@ -162,7 +162,7 @@ class AgentTests(TransactionTestCase):
             {'name': 'First Agent', 'uuid': 'Bad UUID', 'shard': self.first_shard},
             {'name': 'First Agent', 'uuid': None, 'shard': self.first_shard},
 
-            {'name': 'x'*256, 'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'shard': self.first_shard},
+            {'name': 'x' * 256, 'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'shard': self.first_shard},
             {'name': None, 'uuid': '41f94400-2a3e-408a-9b80-1774724f62af', 'shard': self.first_shard},
         ]
 
@@ -266,11 +266,40 @@ class RegisterViewTests(TransactionTestCase):
         self.assertEquals(first_server.position_x, self.server_data['x'])
         self.assertEquals(first_server.position_y, self.server_data['y'])
         self.assertEquals(first_server.position_z, self.server_data['z'])
+        self.assertEquals(first_server.type, Server.TYPE_UNREGISTERED)
 
-    def test_existing_server(self):
+    def test_existing_unregistered_server(self):
         new_server_response = self.client.post(reverse('server:register'), self.server_data)
         self.assertEquals(new_server_response.status_code, 200)
-        self.assertTrue('Success' in new_server_response.json())
+        first_response = new_server_response.json()
+        self.assertTrue('Success' in first_response)
+
+        existing_server_response = self.client.post(reverse('server:register'), self.server_data)
+        self.assertEquals(existing_server_response.status_code, 200)
+        second_response = existing_server_response.json()
+        self.assertTrue('Success' in second_response)
+
+        self.assertNotEqual(first_response, second_response)
+        self.assertEquals(Server.objects.count(), 1)
+
+    def test_existing_registered_server(self):
+        first_shard = Shard.objects.create(name='Shard A')
+        first_region = Region.objects.create(name='Region A', shard=first_shard)
+        first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
+        existing_server = Server.objects.create(
+            uuid=self.server_data['object_key'],
+            type=Server.TYPE_DEFAULT,
+            shard=first_shard,
+            region=first_region,
+            owner=first_agent,
+            name='Server A',
+            private_token='11111111111111111111111111111111',
+            public_token='10101010101010101010101010101010',
+            address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_2_ok',
+            position_x=1.23,
+            position_y=2.34,
+            position_z=3.45,
+            enabled=True)
 
         existing_server_response = self.client.post(reverse('server:register'), self.server_data)
         self.assertEquals(existing_server_response.status_code, 200)
