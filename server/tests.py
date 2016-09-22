@@ -354,7 +354,7 @@ class UpdateViewTests(TestCase):
         first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
         self.server_data = {
             'uuid': '00000000-0000-0000-0000-000000000001',
-            'type': Server.TYPE_UNREGISTERED,
+            'type': Server.TYPE_DEFAULT,
             'shard': first_shard,
             'region': first_region,
             'owner': first_agent,
@@ -463,7 +463,7 @@ class SetEnabledView(TestCase):
         first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
         self.test_server = Server.objects.create(
             uuid='00000000-0000-0000-0000-000000000001',
-            type=Server.TYPE_UNREGISTERED,
+            type=Server.TYPE_DEFAULT,
             shard=first_shard,
             region=first_region,
             owner=first_agent,
@@ -524,7 +524,7 @@ class RegenerateTokenViewTests(TestCase):
         first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
         self.test_server = Server.objects.create(
             uuid='00000000-0000-0000-0000-000000000001',
-            type=Server.TYPE_UNREGISTERED,
+            type=Server.TYPE_DEFAULT,
             shard=first_shard,
             region=first_region,
             owner=first_agent,
@@ -590,3 +590,31 @@ class RegenerateTokenViewTests(TestCase):
         first_server = Server.objects.first()
         self.assertEquals(first_server.private_token, self.private_token)
         self.assertEquals(first_server.public_token, self.public_token)
+
+    def test_server_not_registered(self):
+        self.client.login(username=self.username, password=self.password)
+
+        unregistered_server = Server.objects.create(
+            uuid='00000000-0000-0000-0000-000000000002',
+            type=Server.TYPE_UNREGISTERED,
+            shard=self.test_server.shard,
+            region=self.test_server.region,
+            owner=self.test_server.owner,
+            user=self.test_server.user,
+            name='Unregistered server',
+            address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_2_ok?ignore',
+            private_token='ffffffffffffffffffffffffffffffff',
+            public_token='eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+            position_x=4.44,
+            position_y=5.55,
+            position_z=6.66,
+            enabled=False
+        )
+
+        # Regenerate only the public token then restore the server to its original state.
+        response = self.client.get(reverse('server:regenerate_tokens', kwargs={'public_token': unregistered_server.public_token, 'token_type': 'public'}))
+        updated_server = Server.objects.filter(uuid=unregistered_server.uuid).first()
+        self.assertTrue('error' in response.json())
+        self.assertEqual(updated_server.public_token, unregistered_server.public_token)
+        self.assertEqual(updated_server.private_token, unregistered_server.private_token)
+        self.test_server.save()

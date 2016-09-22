@@ -93,6 +93,8 @@ class UpdateView(generic.View):
         existing_server = Server.objects.filter(private_token=private_token).first()
         if existing_server is None:
             return JsonResponse({'Error': 'No such server'})
+        if existing_server.type == Server.TYPE_UNREGISTERED:
+            return JsonResponse({'error': 'Server not registered'})
 
         existing_server.address = address
         existing_server.save()
@@ -105,6 +107,8 @@ class ConfirmView(LoginRequiredMixin, generic.View):
         existing_server = Server.objects.filter(private_token=private_token).first()
         if existing_server is None:
             return render(request, 'server/confirm.html', {'error': 'Auth token does not belong to any unregistered servers.'})
+        elif existing_server.type != Server.TYPE_UNREGISTERED:
+            return JsonResponse({'Error': 'Server already registered'})
         elif existing_server.user is not None:
             return render(request, 'server/confirm.html', {'error': 'Server already registered.'})
         else:
@@ -126,6 +130,8 @@ class SetEnabledView(LoginRequiredMixin, generic.View):
         server = Server.objects.filter(user=request.user).filter(public_token=public_token).first()
         if server is None:
             return JsonResponse({'error': 'Invalid server'})
+        elif server.type == Server.TYPE_UNREGISTERED:
+            return JsonResponse({'error': 'Server not registered'})
 
         server.enabled = enabled
         server.save()
@@ -137,6 +143,8 @@ class RegenerateTokensView(LoginRequiredMixin, generic.View):
         server = Server.objects.filter(user=request.user).filter(public_token=public_token).first()
         if server is None:
             return JsonResponse({'error': 'Invalid server'})
+        elif server.type == Server.TYPE_UNREGISTERED:
+            return JsonResponse({'error': 'Server not registered'})
 
         if token_type == 'public':
             server.regenerate_public_token()
