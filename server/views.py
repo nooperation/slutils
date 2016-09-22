@@ -44,10 +44,20 @@ class RegisterView(generic.View):
                 if existing_server.type != Server.TYPE_UNREGISTERED:
                     return JsonResponse({'Error': 'Server already registered'})
                 else:
-                    existing_server.regenerate_private_token()
-                    existing_server.regenerate_public_token()
+                    existing_server.type = Server.TYPE_UNREGISTERED
+                    existing_server.shard = shard
+                    existing_server.region = region
+                    existing_server.owner = owner
+                    existing_server.user = None
+                    existing_server.address = address
+                    existing_server.private_token = private_token
+                    existing_server.public_token = public_token
+                    existing_server.name = server_name
+                    existing_server.position_x = position_x
+                    existing_server.position_y = position_y
+                    existing_server.position_z = position_z
+                    existing_server.enabled = False
                     existing_server.save()
-                    private_token=existing_server.private_token
             else:
                 Server.objects.create(
                     uuid=server_key,
@@ -65,7 +75,7 @@ class RegisterView(generic.View):
                     position_z=position_z,
                     enabled=False
                 )
-        except Exception:
+        except Exception as ex:
             return JsonResponse({'Error': 'Failed to create server'})
 
         return JsonResponse({'Success': private_token})
@@ -99,7 +109,7 @@ class ConfirmView(LoginRequiredMixin, generic.View):
             return render(request, 'server/confirm.html', {'error': 'Server already registered.'})
         else:
             # Can we actually read from the server...
-            server_request = requests.get(existing_server.address)
+            server_request = requests.get(existing_server.address + "?path=/Base/Confirm")
             status = server_request.status_code
             if status != 200 or server_request.text != 'OK.':
                 return render(request, 'server/confirm.html', {'error': 'Unable to contact server.'})
