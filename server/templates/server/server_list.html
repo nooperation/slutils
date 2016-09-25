@@ -5,14 +5,18 @@ Servers:
 <table class="table table-striped table-hover ">
     <thead>
     <tr>
-        <th>Server</th>
-        <th>Public Token</th>
+        <th class="text-right">Server</th>
+        <th class="text-right">Status</th>
+        <th class="text-right">Private Token</th>
+        <th class="text-right">Public Token</th>
     </tr>
     </thead>
     <tbody>
     {% for item in servers_list %}
     <tr>
-        <td>{{ item.name }}</td>
+        <td class="text-right">{{ item.name }}</td>
+        <td class="text-right">{{ item.address }}</td>
+        <td class="text-right">{{ item.private_token }}</td>
         <td class="text-right">{{ item.public_token }}</td>
     </tr>
     {% endfor %}

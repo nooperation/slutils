@@ -618,3 +618,66 @@ class RegenerateTokenViewTests(TestCase):
         self.assertEqual(updated_server.public_token, unregistered_server.public_token)
         self.assertEqual(updated_server.private_token, unregistered_server.private_token)
         self.test_server.save()
+
+
+class GetServerStatusViewTests(TestCase):
+    def setUp(self):
+        self.token_types = ['auth', 'public', 'both']
+        self.username = 'test_user'
+        self.password = 'asdf'
+        self.user = User.objects.create_user(username=self.username, email='jdoe@example.com', password=self.password)
+        self.private_token = '11111111111111111111111111111111'
+        self.public_token = '10101010101010101010101010101010'
+        first_shard = Shard.objects.create(name='Shard A')
+        first_region = Region.objects.create(name='Region A', shard=first_shard)
+        first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
+        self.test_server = Server.objects.create(
+            uuid='00000000-0000-0000-0000-000000000001',
+            type=Server.TYPE_DEFAULT,
+            shard=first_shard,
+            region=first_region,
+            owner=first_agent,
+            user=self.user,
+            name='Server B',
+            address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore',
+            private_token=self.private_token,
+            public_token=self.public_token,
+            position_x=4.44,
+            position_y=5.55,
+            position_z=6.66,
+            enabled=False
+        )
+        self.private_token_offline = '22222222222222222222222222222222'
+        self.public_token_offline = '20202020202020202020202020202020'
+        self.test_server_offline = Server.objects.create(
+            uuid='00000000-0000-0000-0000-000000000002',
+            type=Server.TYPE_DEFAULT,
+            shard=first_shard,
+            region=first_region,
+            owner=first_agent,
+            user=self.user,
+            name='Server B',
+            address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_offline?ignore',
+            private_token=self.private_token_offline,
+            public_token=self.public_token_offline,
+            position_x=4.44,
+            position_y=5.55,
+            position_z=6.66,
+            enabled=False
+        )
+
+    def test_server_online(self):
+        response = self.client.get(reverse('server:status', kwargs={'public_token': self.public_token}))
+        self.assertTrue('success' in response.json())
+
+    def test_server_offline(self):
+        response = self.client.get(reverse('server:status', kwargs={'public_token': self.public_token_offline}))
+        self.assertTrue('error' in response.json())
+
+    def test_invalid_server(self):
+        invalid_public_tokens = [
+            '30303030303030303030303030303030',
+        ]
+        for invalid_token in invalid_public_tokens:
+            response = self.client.get(reverse('server:status', kwargs={'public_token': invalid_token}))
+            self.assertTrue('error' in response.json())

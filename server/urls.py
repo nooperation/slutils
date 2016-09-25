@@ -14,4 +14,5 @@ urlpatterns = [
     url(r'^{}/confirm/$'.format(pattern_private_token), views.ConfirmView.as_view(), name='confirm'),
     url(r'^{}/set_enabled/(?P<enabled>True|False)/$'.format(pattern_public_token), views.SetEnabledView.as_view(), name='set_enabled'),
     url(r'^{}/regenerate_tokens/(?P<token_type>public|auth|both)/$'.format(pattern_public_token), views.RegenerateTokensView.as_view(), name='regenerate_tokens'),
+    url(r'^{}/status/$'.format(pattern_public_token), views.StatusView.as_view(), name='status'),
 ]

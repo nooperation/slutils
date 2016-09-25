@@ -112,10 +112,13 @@ class ConfirmView(LoginRequiredMixin, generic.View):
         elif existing_server.user is not None:
             return render(request, 'server/confirm.html', {'error': 'Server already registered.'})
         else:
-            # Can we actually read from the server...
-            server_request = requests.get(existing_server.address + "?path=/Base/Confirm")
-            status = server_request.status_code
-            if status != 200 or server_request.text != 'OK.':
+            try:
+                # Can we actually read from the server...
+                server_request = requests.get(existing_server.address + "?path=/Base/Confirm")
+                status = server_request.status_code
+                if status != 200 or server_request.text != 'OK.':
+                    return render(request, 'server/confirm.html', {'error': 'Unable to contact server.'})
+            except:
                 return render(request, 'server/confirm.html', {'error': 'Unable to contact server.'})
 
             existing_server.type = Server.TYPE_DEFAULT
@@ -166,3 +169,22 @@ class ServerView(generic.View):
         if server is None:
             return render(request, 'server/view.html', {'error': 'Invalid server specified'})
         return render(request, 'server/view.html', {'server': server})
+
+
+class StatusView(generic.View):
+    def get(self, request, public_token):
+        existing_server = Server.objects.filter(public_token=public_token).first()
+        if existing_server is None:
+            return JsonResponse({'error': 'Invalid server'})
+        elif existing_server.type == Server.TYPE_UNREGISTERED:
+            return JsonResponse({'error': 'Server not registered'})
+
+        try:
+            server_request = requests.get(existing_server.address + "?path=/Base/Status")
+            status = server_request.status_code
+            if status != 200 or server_request.text != 'OK.':
+                return JsonResponse({'error': 'Server offline'})
+        except:
+            return JsonResponse({'error': 'Unable to contact server'})
+
+        return JsonResponse({'success': 'Server online'})
