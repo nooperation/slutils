@@ -104,49 +104,62 @@ class UpdateView(generic.View):
         if not all(item is not None for item in [private_token, address]):
             return JsonResponse(json_error('One or more missing arguments'))
 
-        existing_server = Server.objects.filter(private_token=private_token).first()
-        if existing_server is None:
-            return JsonResponse(json_error('No such server'))
-        if existing_server.type == Server.TYPE_UNREGISTERED:
+        try:
+            server = Server.objects.get(private_token=private_token)
+        except Server.DoesNotExist:
+            return JsonResponse(json_error('Server does not exist'))
+        except Server.MultipleObjectsReturned:
+            return JsonResponse(json_error('Multiple servers contain the same token'))
+
+        if server.type == Server.TYPE_UNREGISTERED:
             return JsonResponse(json_error('Server not registered'))
 
-        existing_server.address = address
-        existing_server.save()
+        server.address = address
+        server.save()
 
         return JsonResponse(json_success('OK'))
 
 
 class ConfirmView(LoginRequiredMixin, generic.View):
     def get(self, request, private_token):
-        existing_server = Server.objects.filter(private_token=private_token).first()
-        if existing_server is None:
+
+        try:
+            server = Server.objects.get(private_token=private_token)
+        except Server.DoesNotExist:
             return render(request, 'server/confirm.html', json_error('Auth token does not belong to any unregistered servers.'))
-        elif existing_server.type != Server.TYPE_UNREGISTERED:
+        except Server.MultipleObjectsReturned:
+            return JsonResponse(json_error('Multiple servers contain the same token'))
+
+        if server.type != Server.TYPE_UNREGISTERED:
             return JsonResponse(json_error('Server already registered'))
-        elif existing_server.user is not None:
+        elif server.user is not None:
             return render(request, 'server/confirm.html', json_error('Server already registered.'))
         else:
             try:
                 # Can we actually read from the server...
-                server_request = requests.get(existing_server.address + "?path=/Base/InitComplete")
+                server_request = requests.get(server.address + "?path=/Base/InitComplete")
                 status = server_request.status_code
                 if status != 200 or server_request.text != 'OK.':
                     return render(request, 'server/confirm.html', json_error('Unable to contact server.'))
             except:
                 return render(request, 'server/confirm.html', json_error('Unable to contact server.'))
 
-            existing_server.type = Server.TYPE_DEFAULT
-            existing_server.user = request.user
-            existing_server.save()
+            server.type = Server.TYPE_DEFAULT
+            server.user = request.user
+            server.save()
             return render(request, 'server/confirm.html', json_success('You have successfully registered this server.'))
 
 
 class SetEnabledView(LoginRequiredMixin, generic.View):
     def get(self, request, public_token, enabled):
-        server = Server.objects.filter(user=request.user).filter(public_token=public_token).first()
-        if server is None:
-            return JsonResponse(json_error('Invalid server'))
-        elif server.type == Server.TYPE_UNREGISTERED:
+        try:
+            server = Server.objects.get(user=request.user, public_token=public_token)
+        except Server.DoesNotExist:
+            return JsonResponse(json_error('Server does not exist'))
+        except Server.MultipleObjectsReturned:
+            return JsonResponse(json_error('Multiple servers contain the same token'))
+
+        if server.type == Server.TYPE_UNREGISTERED:
             return JsonResponse(json_error('Server not registered'))
 
         server.enabled = enabled
@@ -156,7 +169,13 @@ class SetEnabledView(LoginRequiredMixin, generic.View):
 
 class RegenerateTokensView(LoginRequiredMixin, generic.View):
     def get(self, request, public_token, token_type):
-        server = Server.objects.filter(user=request.user).filter(public_token=public_token).first()
+        try:
+            server = Server.objects.get(user=request.user, public_token=public_token)
+        except Server.DoesNotExist:
+            return JsonResponse(json_error('Server does not exist'))
+        except Server.MultipleObjectsReturned:
+            return JsonResponse(json_error('Multiple servers contain the same token'))
+
         if server is None:
             return JsonResponse(json_error('Invalid server'))
         elif server.type == Server.TYPE_UNREGISTERED:
@@ -178,22 +197,30 @@ class RegenerateTokensView(LoginRequiredMixin, generic.View):
 
 class ServerView(generic.View):
     def get(self, request, public_token):
-        server = Server.objects.filter(public_token=public_token)
-        if server is None:
-            return render(request, 'server/view.html', json_error('Invalid server specified'))
+        try:
+            server = Server.objects.get(public_token=public_token)
+        except Server.DoesNotExist:
+            return render(request, 'server/view.html', json_error('Server does not exist'))
+        except Server.MultipleObjectsReturned:
+            return render(request, 'server/view.html', json_error('Multiple servers contain the same token'))
+
         return render(request, 'server/view.html', {'server': server})
 
 
 class StatusView(generic.View):
     def get(self, request, public_token):
-        existing_server = Server.objects.filter(public_token=public_token).first()
-        if existing_server is None:
-            return JsonResponse(json_error('Invalid server'))
-        elif existing_server.type == Server.TYPE_UNREGISTERED:
+        try:
+            server = Server.objects.get(public_token=public_token)
+        except Server.DoesNotExist:
+            return JsonResponse(json_error('Server does not exist'))
+        except Server.MultipleObjectsReturned:
+            return JsonResponse(json_error('Multiple servers contain the same token'))
+
+        if server.type == Server.TYPE_UNREGISTERED:
             return JsonResponse(json_error('Server not registered'))
 
         try:
-            server_request = requests.get(existing_server.address + "?path=/Base/Status")
+            server_request = requests.get(server.address + "?path=/Base/Status")
             status = server_request.status_code
             if status != 200 or server_request.text != 'OK.':
                 return JsonResponse(json_error('Server offline'))
