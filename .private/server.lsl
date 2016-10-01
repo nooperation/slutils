@@ -3,6 +3,10 @@ string URL_REGISTER = "https://slutils-nooperation.c9users.io/server/register/";
 string URL_UPDATE = "https://slutils-nooperation.c9users.io/server/update/";
 string URL_CONFIRM = "https://slutils-nooperation.c9users.io/server/";
 
+string kResultTag = "result";
+string kMessageTag = "message";
+string kResultSuccess = "success";
+string kResultError = "error";
 
 string serverType = "Population Server";
 key registerRequestId;
@@ -57,13 +61,15 @@ string BuildQueryResult()
     list agentsInRegion = llGetAgentList(AGENT_LIST_REGION, []);
     integer numAgentsInRegion = llGetListLength(agentsInRegion);
     
+    /*
     string response = "{\"Players\":[";
     integer i;
     
     for(i = 0; i < numAgentsInRegion; i++)
     {
         key agentKey = llList2Key(agentsInRegion, i);
-        vector agentPos = llGetPos(agentKey);
+        list object_details = llGetObjectDetails(agentKey, [OBJECT_POS]);
+        vector agentPos = llList2Vector(object_details, 0);
         
         string pos_x = (string)((integer)agentPos.x);
         string pos_y = (string)((integer)agentPos.y);
@@ -80,6 +86,27 @@ string BuildQueryResult()
     }
     
     response += "]}";
+    */
+    string response = (string)numAgentsInRegion + ",";
+    
+    integer i;
+    for(i = 0; i < numAgentsInRegion; i++)
+    {
+        key agentKey = llList2Key(agentsInRegion, i);
+        list object_details = llGetObjectDetails(agentKey, [OBJECT_POS]);
+        vector agentPos = llList2Vector(object_details, 0);
+        
+        string pos_x = (string)((integer)agentPos.x);
+        string pos_y = (string)((integer)agentPos.y);
+        string pos_z = (string)((integer)agentPos.z);
+        
+        response += (string)agentKey + "," + pos_x + "," + pos_y + "," + pos_z;
+    
+        if(i < numAgentsInRegion-1)
+        {
+            response += ",";   
+        }
+    }
     
     return response;
 }
@@ -323,23 +350,25 @@ state StartServer
             
             if(status == 200)
             {
-                string error_result = llJsonGetValue(body, ["Error"]);
-                if(error_result != JSON_INVALID)
-                {
-                    Output("Failed to register server: " + error_result);
-                    return;
-                }
+                string result = llJsonGetValue(body, [kResultTag]);
+                string message = llJsonGetValue(body, [kMessageTag]);
                 
-                string success_result = llJsonGetValue(body, ["Success"]);
-                if(success_result != JSON_INVALID)
+                if(result == kResultSuccess)
                 {
                     Output("Registered!");
-                    authToken = success_result;
+                    authToken = message;
                     Output("Base server registered. Now to configure it...");
                     state InitializeServer;
                 }
-                
-                Output("Failed to register server: " + body);
+                else if(result == kResultError)
+                {
+                    Output("Failed to register server: " + message);    
+                }
+                else
+                {
+                    Output("Invalid response while registering server: " + body);
+                }
+
                 return;
             }
             else
@@ -350,15 +379,25 @@ state StartServer
         } 
         else if(requestId == updateRequestId)
         {
-            if(status == 200 && llGetSubString(body, 0, 2) == "OK.")
+            if(status == 200)
             {
-                Output("Updated!");
-                state ServerRunning;
-            }
-            else
-            {
-                Output("Failed to update: " + body);
-                Output("Make sure your auth token is correct");
+                string result = llJsonGetValue(body, [kResultTag]);
+                string message = llJsonGetValue(body, [kMessageTag]);
+                
+                if(result == kResultSuccess)
+                {
+                    Output("Updated!");
+                    state ServerRunning;
+                }
+                else if(result == kResultError)
+                {
+                    Output("Failed to update server: " + message);    
+                }
+                else
+                {
+                    Output("Invalid response while updating server: " + body);
+                }
+                
                 return;
             }
         }

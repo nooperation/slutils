@@ -4,8 +4,17 @@ from django.core.exceptions import ValidationError
 from django.core.urlresolvers import reverse
 
 from .models import *
+from .views import JSON_RESULT_ERROR
+from .views import JSON_RESULT_SUCCESS
+from .views import JSON_TAG_RESULT 
+from .views import JSON_TAG_MESSAGE
 
+def is_json_success(result_json):
+    return JSON_TAG_RESULT in result_json and result_json[JSON_TAG_RESULT] == JSON_RESULT_SUCCESS
 
+def is_json_error(result_json):
+    return JSON_TAG_RESULT in result_json and result_json[JSON_TAG_RESULT] == JSON_RESULT_ERROR
+    
 class ShardTests(TransactionTestCase):
     def test_normal_creation(self):
         """
@@ -253,7 +262,7 @@ class RegisterViewTests(TransactionTestCase):
     def test_new_server(self):
         response = self.client.post(reverse('server:register'), self.server_data)
         self.assertEquals(response.status_code, 200)
-        self.assertTrue('Success' in response.json())
+        self.assertTrue(is_json_success(response.json()))
         self.assertEquals(Server.objects.count(), 1)
 
         first_server = Server.objects.first()
@@ -273,8 +282,7 @@ class RegisterViewTests(TransactionTestCase):
         # Create create our first server
         new_server_response = self.client.post(reverse('server:register'), self.server_data)
         self.assertEquals(new_server_response.status_code, 200)
-        first_response = new_server_response.json()
-        self.assertTrue('Success' in first_response)
+        self.assertTrue(is_json_success(new_server_response.json()))
 
         # Re-register the same server (object_key), but with different data. This should simply update the existing server
         # if the existing server is still not claimed by anyone and generate new private and public tokens.
@@ -292,8 +300,7 @@ class RegisterViewTests(TransactionTestCase):
         }
         existing_server_response = self.client.post(reverse('server:register'), new_server_data)
         self.assertEquals(existing_server_response.status_code, 200)
-        second_response = existing_server_response.json()
-        self.assertTrue('Success' in second_response)
+        self.assertTrue(is_json_success(existing_server_response.json()))
 
         # Must not create any new servers
         self.assertEquals(Server.objects.count(), 1)
@@ -331,10 +338,9 @@ class RegisterViewTests(TransactionTestCase):
             position_z=3.45,
             enabled=True)
 
-        existing_server_response = self.client.post(reverse('server:register'), self.server_data)
-        self.assertEquals(existing_server_response.status_code, 200)
-        self.assertTrue('Error' in existing_server_response.json())
-
+        response = self.client.post(reverse('server:register'), self.server_data)
+        self.assertEquals(response.status_code, 200)
+        self.assertTrue(is_json_error(response.json()))
         self.assertEquals(Server.objects.count(), 1)
 
     def test_missing_param(self):
@@ -342,7 +348,7 @@ class RegisterViewTests(TransactionTestCase):
             partial_server_data = self.server_data.copy()
             del partial_server_data[key]
             response = self.client.post(reverse('server:register'), partial_server_data)
-            self.assertTrue('Error' in response.json())
+            self.assertTrue(is_json_error(response.json()))
 
         self.assertEquals(Server.objects.count(), 0)
 
@@ -387,7 +393,7 @@ class UpdateViewTests(TestCase):
         new_address = 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore'
         response = self.client.post(reverse('server:update'), {'private_token': self.test_server.private_token, 'address': new_address})
         self.assertEquals(response.status_code, 200)
-        self.assertTrue('Success' in response.json())
+        self.assertTrue(is_json_success(response.json()))
         self.assertEquals(Server.objects.count(), 1)
 
         first_server = Server.objects.first()
@@ -405,7 +411,7 @@ class UpdateViewTests(TestCase):
 
         for invalid_private_token in invalid_private_tokens:
             response = self.client.post(reverse('server:update'), {'private_token': invalid_private_token, 'address': new_address})
-            self.assertTrue('Error' in response.json())
+            self.assertTrue(is_json_error(response.json()))
             first_server = Server.objects.first()
             self.assertEquals(first_server.address, self.server_data['address'])
 
@@ -440,7 +446,7 @@ class ConfirmServerView(TestCase):
         response = self.client.get(reverse('server:confirm', kwargs={'private_token': self.private_token}))
         first_server = Server.objects.first()
         self.assertEquals(response.status_code, 200)
-        self.assertContains(response, 'Success')
+        self.assertContains(response, JSON_RESULT_SUCCESS)
         self.assertEquals(first_server.user, self.user)
         self.assertNotEquals(first_server.private_token, self.private_token)
         self.assertEquals(first_server.type, Server.TYPE_DEFAULT)
@@ -484,12 +490,12 @@ class SetEnabledView(TestCase):
 
         # We should be able to successfully enable the server we own.
         response = self.client.get(reverse('server:set_enabled', kwargs={'public_token': self.public_token, 'enabled': True}))
-        self.assertTrue('success' in response.json())
+        self.assertTrue(is_json_success(response.json()))
         self.assertTrue(Server.objects.first().enabled)
 
         # We should be able to successfully disable the server we own.
         response = self.client.get(reverse('server:set_enabled', kwargs={'public_token': self.public_token, 'enabled': False}))
-        self.assertTrue('success' in response.json())
+        self.assertTrue(is_json_success(response.json()))
         self.assertFalse(Server.objects.first().enabled)
 
     def test_invalid_server(self):
@@ -501,7 +507,7 @@ class SetEnabledView(TestCase):
 
         # Attempting to change a server we don't own should result in error and have no effect on the server.
         response = self.client.get(reverse('server:set_enabled', kwargs={'public_token': self.public_token, 'enabled': True}))
-        self.assertTrue('error' in response.json())
+        self.assertTrue(is_json_error(response.json()))
         self.assertFalse(Server.objects.first().enabled)
 
     def test_not_logged_in(self):
@@ -544,21 +550,21 @@ class RegenerateTokenViewTests(TestCase):
 
         # Regenerate only the public token then restore the server to its original state.
         response = self.client.get(reverse('server:regenerate_tokens', kwargs={'public_token': self.public_token, 'token_type': 'public'}))
-        self.assertTrue('success' in response.json())
+        self.assertTrue(is_json_success(response.json()))
         self.assertNotEqual(Server.objects.first().public_token, self.public_token)
         self.assertEqual(Server.objects.first().private_token, self.private_token)
         self.test_server.save()
 
         # Regenerate only the auth token then restore the server to its original state.
         response = self.client.get(reverse('server:regenerate_tokens', kwargs={'public_token': self.public_token, 'token_type': 'auth'}))
-        self.assertTrue('success' in response.json())
+        self.assertTrue(is_json_success(response.json()))
         self.assertEqual(Server.objects.first().public_token, self.public_token)
         self.assertNotEqual(Server.objects.first().private_token, self.private_token)
         self.test_server.save()
 
         # Regenerate both tokens then restore the server to its original state.
         response = self.client.get(reverse('server:regenerate_tokens', kwargs={'public_token': self.public_token, 'token_type': 'both'}))
-        self.assertTrue('success' in response.json())
+        self.assertTrue(is_json_success(response.json()))
         self.assertNotEqual(Server.objects.first().public_token, self.public_token)
         self.assertNotEqual(Server.objects.first().private_token, self.private_token)
         self.test_server.save()
@@ -572,7 +578,7 @@ class RegenerateTokenViewTests(TestCase):
         # Attempting to change a server we don't own should result in error and have no effect on the server.
         for token_type in self.token_types:
             response = self.client.get(reverse('server:regenerate_tokens', kwargs={'public_token': self.public_token, 'token_type': token_type}))
-            self.assertTrue('error' in response.json())
+            self.assertTrue(is_json_error(response.json()))
 
         # Tokens must not change.
         first_server = Server.objects.first()
@@ -614,7 +620,7 @@ class RegenerateTokenViewTests(TestCase):
         # Regenerate only the public token then restore the server to its original state.
         response = self.client.get(reverse('server:regenerate_tokens', kwargs={'public_token': unregistered_server.public_token, 'token_type': 'public'}))
         updated_server = Server.objects.filter(uuid=unregistered_server.uuid).first()
-        self.assertTrue('error' in response.json())
+        self.assertTrue(is_json_error(response.json()))
         self.assertEqual(updated_server.public_token, unregistered_server.public_token)
         self.assertEqual(updated_server.private_token, unregistered_server.private_token)
         self.test_server.save()
@@ -668,11 +674,11 @@ class GetServerStatusViewTests(TestCase):
 
     def test_server_online(self):
         response = self.client.get(reverse('server:status', kwargs={'public_token': self.public_token}))
-        self.assertTrue('success' in response.json())
+        self.assertTrue(is_json_success(response.json()))
 
     def test_server_offline(self):
         response = self.client.get(reverse('server:status', kwargs={'public_token': self.public_token_offline}))
-        self.assertTrue('error' in response.json())
+        self.assertTrue(is_json_error(response.json()))
 
     def test_invalid_server(self):
         invalid_public_tokens = [
@@ -680,4 +686,4 @@ class GetServerStatusViewTests(TestCase):
         ]
         for invalid_token in invalid_public_tokens:
             response = self.client.get(reverse('server:status', kwargs={'public_token': invalid_token}))
-            self.assertTrue('error' in response.json())
+            self.assertTrue(is_json_error(response.json()))
