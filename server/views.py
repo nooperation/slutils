@@ -12,11 +12,14 @@ JSON_RESULT_ERROR = 'error'
 JSON_TAG_RESULT = 'result'
 JSON_TAG_MESSAGE = 'message'
 
+
 def json_success(message):
     return {JSON_TAG_RESULT: JSON_RESULT_SUCCESS, JSON_TAG_MESSAGE: message}
 
+
 def json_error(message):
     return {JSON_TAG_RESULT: JSON_RESULT_ERROR, JSON_TAG_MESSAGE: message}
+
 
 class IndexView(LoginRequiredMixin, generic.View):
     def get(self, request):
@@ -111,7 +114,6 @@ class UpdateView(generic.View):
         existing_server.save()
 
         return JsonResponse(json_success('OK'))
-
 
 
 class ConfirmView(LoginRequiredMixin, generic.View):

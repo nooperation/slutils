@@ -9,12 +9,15 @@ from .views import JSON_RESULT_SUCCESS
 from .views import JSON_TAG_RESULT 
 from .views import JSON_TAG_MESSAGE
 
+
 def is_json_success(result_json):
     return JSON_TAG_RESULT in result_json and result_json[JSON_TAG_RESULT] == JSON_RESULT_SUCCESS
 
+
 def is_json_error(result_json):
     return JSON_TAG_RESULT in result_json and result_json[JSON_TAG_RESULT] == JSON_RESULT_ERROR
-    
+
+
 class ShardTests(TransactionTestCase):
     def test_normal_creation(self):
         """
@@ -448,7 +451,6 @@ class ConfirmServerView(TestCase):
         self.assertEquals(response.status_code, 200)
         self.assertContains(response, JSON_RESULT_SUCCESS)
         self.assertEquals(first_server.user, self.user)
-        self.assertNotEquals(first_server.private_token, self.private_token)
         self.assertEquals(first_server.type, Server.TYPE_DEFAULT)
 
     def test_normal_confirmation_not_loggedin(self):

@@ -1,22 +1,22 @@
 {% extends "base.html" %}
 
 {% block content %}
-    {% if error %}
-        <div class="panel panel-danger">
-          <div class="panel-heading">
-            <h3 class="panel-title">Error</h3>
-          </div>
-          <div class="panel-body">
-            {{ error }}
-          </div>
-        </div>
-    {% elif success %}
+    {% if result == "success" %}
         <div class="panel panel-success">
           <div class="panel-heading">
             <h3 class="panel-title">Success</h3>
           </div>
           <div class="panel-body">
-            {{ success }}
+            {{ message }}
+          </div>
+        </div>
+    {% else %}
+        <div class="panel panel-danger">
+          <div class="panel-heading">
+            <h3 class="panel-title">Error</h3>
+          </div>
+          <div class="panel-body">
+            {{ message }}
           </div>
         </div>
     {% endif %}
