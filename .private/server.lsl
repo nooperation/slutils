@@ -1,7 +1,32 @@
 // Server data
-string URL_REGISTER = "https://slutils-nooperation.c9users.io/server/register/";
-string URL_UPDATE = "https://slutils-nooperation.c9users.io/server/update/";
-string URL_CONFIRM = "https://slutils-nooperation.c9users.io/server/";
+string URL_REGISTER =  "http://x:5000/server/register/";
+string URL_UPDATE =  "http://x:5000/server/update/";
+string URL_CONFIRM =  "http://x:5000/server/";
+
+integer SERVER_CUSTOM_HTTP_REQUEST = -1001;
+integer SERVER_REGISTRATION_REQUEST = -1002;
+
+integer SCRIPT_REGISTRATION_RESPONSE = -2002;
+integer SCRIPT_CUSTOM_HTTP_RESPONSE = -10000000;
+
+list handler_map;
+integer handler_map_length = 0;
+integer HANDLER_MAP_STRIDE = 2;
+
+integer GetHandlerID(string name)
+{
+    integer i = 0;
+    for(i = 0; i < handler_map_length; i += HANDLER_MAP_STRIDE)
+    {
+        string handler_name = llList2String(handler_map, i);
+        if(handler_name == name)
+        {
+            return llList2Integer(handler_map, i + 1);
+        }
+    }
+
+    return 0;
+}
 
 string kResultTag = "result";
 string kMessageTag = "message";
@@ -11,7 +36,7 @@ string kResultError = "error";
 string serverType = "Population Server";
 key registerRequestId;
 key updateRequestId;
-key urlRequestId; 
+key urlRequestId;
 key listenKey;
 string assignedUrl = "";
 
@@ -23,117 +48,20 @@ string expectedAuthToken = "";
 key confirmRequestId = NULL_KEY;
 string shard = "Unknown";
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ++++++  HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
-//                               FOR LOCAL OpenSim TESTING ONLY
-///////////////////////////////////////////////////////////////////////////////////////////////////////////
-/*
-string JSON_OBJECT = "﷑";
-string llList2Json( string type, list values )
-{
-    string buff = "{";
-    integer numItems = llGetListLength(values);
-    integer i;
-    
-    for(i = 0; i < numItems; i += 2)
-    {
-        string itemKey = llList2String(values, i);
-        string itemValue = llList2String(values, i+1);
-        
-        buff += "\"" + itemKey + "\":\"" + itemValue + "\"";
-                    
-        if(i < numItems-2)
-        {
-            buff += ",";
-        }
-    }
-    buff += "}";
-    
-    return buff;
-}
-*/
-///////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ----- HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
-///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-string BuildQueryResult()
-{
-    list agentsInRegion = llGetAgentList(AGENT_LIST_REGION, []);
-    integer numAgentsInRegion = llGetListLength(agentsInRegion);
-    
-    /*
-    string response = "{\"Players\":[";
-    integer i;
-    
-    for(i = 0; i < numAgentsInRegion; i++)
-    {
-        key agentKey = llList2Key(agentsInRegion, i);
-        list object_details = llGetObjectDetails(agentKey, [OBJECT_POS]);
-        vector agentPos = llList2Vector(object_details, 0);
-        
-        string pos_x = (string)((integer)agentPos.x);
-        string pos_y = (string)((integer)agentPos.y);
-        string pos_z = (string)((integer)agentPos.z);
-        
-        response += llList2Json(JSON_OBJECT, [
-            "Key", (string)agentKey,
-            "Pos", "<" + pos_x + "," + pos_y + "," + pos_z + ">"
-        ]);
-        if(i < numAgentsInRegion-1)
-        {
-            response += ",";   
-        }
-    }
-    
-    response += "]}";
-    */
-    string response = (string)numAgentsInRegion + ",";
-    
-    integer i;
-    for(i = 0; i < numAgentsInRegion; i++)
-    {
-        key agentKey = llList2Key(agentsInRegion, i);
-        list object_details = llGetObjectDetails(agentKey, [OBJECT_POS]);
-        vector agentPos = llList2Vector(object_details, 0);
-        
-        string pos_x = (string)((integer)agentPos.x);
-        string pos_y = (string)((integer)agentPos.y);
-        string pos_z = (string)((integer)agentPos.z);
-        
-        response += (string)agentKey + "," + pos_x + "," + pos_y + "," + pos_z;
-    
-        if(i < numAgentsInRegion-1)
-        {
-            response += ",";   
-        }
-    }
-    
-    return response;
-}
 
 integer ProcessRequest(list pathParts, key requestId)
 {
     string firstPathPart = llList2String(pathParts, 0);
     //llOwnerSay("Request: " + llDumpList2String(pathParts, "|"));
-    
+
     if(firstPathPart == "Base")
     {
         string secondPathPart = llList2String(pathParts, 1);
-        
-        if(secondPathPart == "GetAgentList")
-        {
-            llHTTPResponse(requestId, 200, BuildQueryResult());
-            return TRUE;
-        }
-        else if(secondPathPart == "GetRegionAgentCount")
-        {
-            llHTTPResponse(requestId, 200, (string)llGetRegionAgentCount());
-            return TRUE;
-        }    
-        else if(secondPathPart == "Confirm")
+
+        if(secondPathPart == "Confirm")
         {
             llHTTPResponse(requestId, 200, "OK.");
-            return TRUE;   
+            return TRUE;
         }
         else if(secondPathPart == "InitComplete")
         {
@@ -141,17 +69,23 @@ integer ProcessRequest(list pathParts, key requestId)
             state StartServer;
         }
     }
-    
+    else
+    {
+        integer handler_id = GetHandlerID(firstPathPart);
+        if(handler_id == 0)
+        {
+            return FALSE;
+        }
+
+        llMessageLinked(LINK_THIS, handler_id, llDumpList2String(pathParts, ","), requestId);
+        return TRUE;
+    }
+
     return FALSE;
 }
 
-/// <summary>
-/// 
-/// </summary>
-/// <param name="message">Message to output</param>
 Output(string message)
 {
-    //llInstantMessage(llGetOwner(), message);
     llOwnerSay(message);
 }
 
@@ -168,11 +102,11 @@ string ExtractValueFromQuery(string query, string name)
         {
             if(llList2String(keyValuePair, 0) == name)
             {
-                return llList2String(keyValuePair, 1);   
+                return llList2String(keyValuePair, 1);
             }
         }
     }
-    
+
     return "";
 }
 
@@ -186,7 +120,7 @@ processTriggerLine(string line)
     integer seperatorIndex = llSubStringIndex(line, "=");
     string name;
     string value;
-    
+
     if(seperatorIndex <= 0)
     {
         Output("Missing separator: " + line);
@@ -195,7 +129,7 @@ processTriggerLine(string line)
 
     name = llToLower(llStringTrim(llGetSubString(line, 0, seperatorIndex - 1), STRING_TRIM_TAIL));
     value = llStringTrim(llGetSubString(line, seperatorIndex + 1, -1), STRING_TRIM);
-    
+
     if(name == "authtoken")
     {
         authToken = value;
@@ -211,21 +145,21 @@ processTriggerLine(string line)
 /// </summary>
 /// <param name="line">Line from actions notecard</param>
 processConfigLine(string line)
-{      
+{
     line = llStringTrim(line, STRING_TRIM_HEAD);
-    
+
     if(line == "" || llGetSubString(line, 0, 0) == "#")
     {
         return;
     }
-    
+
     processTriggerLine(line);
 }
 
 integer ReadConfig()
 {
     authToken = "";
-    
+
     if(llGetInventoryType(CONFIG_PATH) != INVENTORY_NONE)
     {
         if(llGetInventoryKey(CONFIG_PATH) != NULL_KEY)
@@ -243,11 +177,11 @@ integer ReadConfig()
             }
             else
             {
-                Output("Config file has no key (Never saved? Not full-perm?)");   
+                Output("Config file has no key (Never saved? Not full-perm?)");
             }
         }
     }
-    
+
     return FALSE;
 }
 
@@ -256,7 +190,7 @@ default
     state_entry()
     {
         Output("Fresh state");
-        
+
         if(!ReadConfig())
         {
             state StartServer;
@@ -271,17 +205,17 @@ default
             {
                 state StartServer;
             }
-            
+
             processConfigLine(data);
-            configQueryId = llGetNotecardLine(CONFIG_PATH, ++currentConfigLine); 
+            configQueryId = llGetNotecardLine(CONFIG_PATH, ++currentConfigLine);
         }
     }
-    
+
     on_rez(integer start_param)
     {
-        llResetScript();    
+        llResetScript();
     }
-    
+
     changed(integer change)
     {
         if(change & (CHANGED_OWNER | CHANGED_REGION | CHANGED_REGION_START))
@@ -300,20 +234,20 @@ state StartServer
         Output("Server starting...");
         urlRequestId = llRequestURL();
     }
-    
+
     http_request(key requestId, string method, string body)
     {
         if(requestId != urlRequestId)
         {
             return;
         }
-        
+
         if(method == URL_REQUEST_GRANTED)
         {
             assignedUrl = body;
-            
+
             Output("Got URL: " + assignedUrl);
-            
+
             if(authToken == "")
             {
                 Output("Registering server...");
@@ -332,8 +266,8 @@ state StartServer
             }
             else
             {
-                Output("Updating server...");  
-                updateRequestId = llHTTPRequest(URL_UPDATE, [HTTP_METHOD, "POST", HTTP_MIMETYPE,"application/x-www-form-urlencoded"], "address=" +  llEscapeURL(assignedUrl) + "&private_token=" + authToken); 
+                Output("Updating server...");
+                updateRequestId = llHTTPRequest(URL_UPDATE, [HTTP_METHOD, "POST", HTTP_MIMETYPE,"application/x-www-form-urlencoded"], "address=" +  llEscapeURL(assignedUrl) + "&private_token=" + authToken);
             }
         }
         else if(method == URL_REQUEST_DENIED)
@@ -341,18 +275,18 @@ state StartServer
             Output("Failed to acquire URL!");
         }
     }
-    
+
     http_response(key requestId, integer status, list metadata, string body)
     {
         if (requestId == registerRequestId)
         {
             integer successful = FALSE;
-            
+
             if(status == 200)
             {
                 string result = llJsonGetValue(body, [kResultTag]);
                 string message = llJsonGetValue(body, [kMessageTag]);
-                
+
                 if(result == kResultSuccess)
                 {
                     Output("Registered!");
@@ -362,7 +296,7 @@ state StartServer
                 }
                 else if(result == kResultError)
                 {
-                    Output("Failed to register server: " + message);    
+                    Output("Failed to register server: " + message);
                 }
                 else
                 {
@@ -376,14 +310,14 @@ state StartServer
                 Output("Failed to register due to http status " + (string)status + ": " + body);
                 return;
             }
-        } 
+        }
         else if(requestId == updateRequestId)
         {
             if(status == 200)
             {
                 string result = llJsonGetValue(body, [kResultTag]);
                 string message = llJsonGetValue(body, [kMessageTag]);
-                
+
                 if(result == kResultSuccess)
                 {
                     Output("Updated!");
@@ -391,13 +325,13 @@ state StartServer
                 }
                 else if(result == kResultError)
                 {
-                    Output("Failed to update server: " + message);    
+                    Output("Failed to update server: " + message);
                 }
                 else
                 {
                     Output("Invalid response while updating server: " + body);
                 }
-                
+
                 return;
             }
         }
@@ -406,12 +340,12 @@ state StartServer
             Output("Unknown request");
         }
     }
-    
+
     on_rez(integer start_param)
     {
-        llResetScript();    
+        llResetScript();
     }
-    
+
     changed(integer change)
     {
         if(change & (CHANGED_OWNER | CHANGED_REGION | CHANGED_REGION_START))
@@ -422,7 +356,7 @@ state StartServer
         if(change & CHANGED_INVENTORY)
         {
             Output("Resetting...");
-            llResetScript();   
+            llResetScript();
         }
     }
 }
@@ -434,31 +368,31 @@ state InitializeServer
     {
         llSetColor(<1, 1, 0>, ALL_SIDES);
         Output("Looking for config...");
-        
+
         expectedAuthToken = authToken;
         authToken = "";
-        
+
         if(!ReadConfig())
         {
             Output("Please create a notecard named 'Config' with the following contents and add it to this object's inventory:\nauthtoken=" + expectedAuthToken);
         }
     }
-    
+
     on_rez(integer start_param)
     {
-        llResetScript();    
+        llResetScript();
     }
-    
+
     touch(integer num_detected)
     {
         if(llDetectedKey(0) != llGetOwner())
         {
             return;
         }
-        
+
         ReadConfig();
     }
-    
+
     changed(integer change)
     {
         if(change & (CHANGED_OWNER | CHANGED_REGION | CHANGED_REGION_START))
@@ -471,7 +405,7 @@ state InitializeServer
             ReadConfig();
         }
     }
-    
+
     http_request(key requestId, string method, string body)
     {
         // TODO: This is duplicate code....
@@ -484,13 +418,13 @@ state InitializeServer
             llHTTPResponse(requestId, 400, "Bad Request");
             return;
         }
-        
+
         if(!ProcessRequest(requestedPathParts, requestId))
         {
             llHTTPResponse(requestId, 501, "Not Implemented");
         }
     }
-    
+
     dataserver(key queryId, string data)
     {
         if(queryId == configQueryId)
@@ -500,9 +434,9 @@ state InitializeServer
                 Output("Unexpected end of line. You must add the following line to the Config notecard:\nauthtoken=" + expectedAuthToken);
                 return;
             }
-            
+
             processConfigLine(data);
-            
+
             if(authToken != "" && authToken != expectedAuthToken)
             {
                 Output("Unexpected auth token. You must add the following line to the Config notecard:\nauthtoken=" + expectedAuthToken);
@@ -514,7 +448,7 @@ state InitializeServer
             }
             else
             {
-                configQueryId = llGetNotecardLine(CONFIG_PATH, ++currentConfigLine);    
+                configQueryId = llGetNotecardLine(CONFIG_PATH, ++currentConfigLine);
             }
         }
     }
@@ -524,10 +458,15 @@ state ServerRunning
 {
     state_entry()
     {
-        llSetColor(<0, 1, 0>, ALL_SIDES);
         Output("Server running...");
+
+        llSetColor(<0, 1, 0>, ALL_SIDES);
+        handler_map = [];
+        handler_map_length = 0;
+
+        llMessageLinked(LINK_THIS, SERVER_REGISTRATION_REQUEST, "", NULL_KEY);
     }
-    
+
     http_request(key requestId, string method, string body)
     {
         string requestedPathRaw = ExtractValueFromQuery(llGetHTTPHeader(requestId, "x-query-string"), "path");
@@ -539,13 +478,44 @@ state ServerRunning
             llHTTPResponse(requestId, 400, "Bad Request");
             return;
         }
-        
+
         if(!ProcessRequest(requestedPathParts, requestId))
         {
             llHTTPResponse(requestId, 501, "Not Implemented");
         }
     }
-    
+
+    link_message(integer sender_num, integer source, string body, key id)
+    {
+        if(source == SCRIPT_REGISTRATION_RESPONSE)
+        {
+            integer id = (integer)((string)id);
+            if(id <= 0)
+            {
+                llOwnerSay("Invalid key specified: " + (string)id);
+            }
+            else
+            {
+                integer existing_key = GetHandlerID(body);
+                if(existing_key > 0)
+                {
+                    llOwnerSay("Duplicate key detected: " + body);
+                }
+                else
+                {
+                    llOwnerSay("Added handler for /" + body + "");
+                    handler_map += [body, (integer)id];
+                    handler_map_length += 2;
+                }
+            }
+        }
+        else if(source <= SCRIPT_CUSTOM_HTTP_RESPONSE)
+        {
+            integer status = source - SCRIPT_CUSTOM_HTTP_RESPONSE;
+            llHTTPResponse(id, status, body);
+        }
+    }
+
     on_rez(integer start_param)
     {
         llResetScript();    

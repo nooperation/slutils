@@ -1,22 +1,33 @@
 {% extends "base.html" %}
 
 {% block content %}
-    {% if error %}
+    {% if result == "success" %}
+        <table class="table table-striped table-hover ">
+            <caption>Server '{{ payload.name }}'</caption>
+            <thead>
+                <tr><th>Key</th><th>Value</th></tr>
+            </thead>
+            <tr><td>type</td><td>{{ payload.type }}</td></tr>
+            <tr><td>shard</td><td>{{ payload.shard }}</td></tr>
+            <tr><td>region</td><td>{{ payload.region }}</td></tr>
+            <tr><td>owner</td><td>{{ payload.owner }}</td></tr>
+            <tr><td>user</td><td>{{ payload.user }}</td></tr>
+            <tr><td>address</td><td>{{ payload.address }}</td></tr>
+            <tr><td>private_token</td><td>{{ payload.private_token }}</td></tr>
+            <tr><td>public_token</td><td>{{ payload.public_token }}</td></tr>
+            <tr><td>name</td><td>{{ payload.name }}</td></tr>
+            <tr><td>position_x</td><td>{{ payload.position_x }}</td></tr>
+            <tr><td>position_y</td><td>{{ payload.position_y }}</td></tr>
+            <tr><td>position_z</td><td>{{ payload.position_z }}</td></tr>
+            <tr><td>enabled </td><td>{{ payload.enabled }}</td></tr>
+            </table>
+    {% else %}
         <div class="panel panel-danger">
           <div class="panel-heading">
             <h3 class="panel-title">Error</h3>
           </div>
           <div class="panel-body">
-            {{ error }}
-          </div>
-        </div>
-    {% elif server is not none %}
-        <div class="panel panel-success">
-          <div class="panel-heading">
-            <h3 class="panel-title">Success</h3>
-          </div>
-          <div class="panel-body">
-            {{ server.public_token }}
+            {{ payload }}
           </div>
         </div>
     {% endif %}

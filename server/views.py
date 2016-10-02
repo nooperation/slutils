@@ -10,7 +10,7 @@ from django.utils.decorators import method_decorator
 JSON_RESULT_SUCCESS = 'success'
 JSON_RESULT_ERROR = 'error'
 JSON_TAG_RESULT = 'result'
-JSON_TAG_MESSAGE = 'message'
+JSON_TAG_MESSAGE = 'payload'
 
 
 def json_success(message):
@@ -204,7 +204,7 @@ class ServerView(generic.View):
         except Server.MultipleObjectsReturned:
             return render(request, 'server/view.html', json_error('Multiple servers contain the same token'))
 
-        return render(request, 'server/view.html', {'server': server})
+        return render(request, 'server/view.html', json_success(server))
 
 
 class StatusView(generic.View):
@@ -228,3 +228,4 @@ class StatusView(generic.View):
             return JsonResponse(json_error('Unable to contact server'))
 
         return JsonResponse(json_success('Server online'))
+
