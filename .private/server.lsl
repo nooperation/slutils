@@ -1,6 +1,6 @@
 // Server data
-string URL_REGISTER =  "http://x:5000/server/register/";
-string URL_UPDATE =  "http://x:5000/server/update/";
+string URL_REGISTER = "http://x:5000/server/register/";
+string URL_UPDATE =   "http://x:5000/server/update/";
 string URL_CONFIRM =  "http://x:5000/server/";
 
 integer SERVER_CUSTOM_HTTP_REQUEST = -1001;
@@ -12,21 +12,6 @@ integer SCRIPT_CUSTOM_HTTP_RESPONSE = -10000000;
 list handler_map;
 integer handler_map_length = 0;
 integer HANDLER_MAP_STRIDE = 2;
-
-integer GetHandlerID(string name)
-{
-    integer i = 0;
-    for(i = 0; i < handler_map_length; i += HANDLER_MAP_STRIDE)
-    {
-        string handler_name = llList2String(handler_map, i);
-        if(handler_name == name)
-        {
-            return llList2Integer(handler_map, i + 1);
-        }
-    }
-
-    return 0;
-}
 
 string kResultTag = "result";
 string kMessageTag = "message";
@@ -48,17 +33,63 @@ string expectedAuthToken = "";
 key confirmRequestId = NULL_KEY;
 string shard = "Unknown";
 
-
-integer ProcessRequest(list pathParts, key requestId)
+OnGetCapabilities(key request_id)
 {
-    string firstPathPart = llList2String(pathParts, 0);
-    //llOwnerSay("Request: " + llDumpList2String(pathParts, "|"));
+    list capabilities = [];
+    integer i = 0;
+    for(i = 0; i < handler_map_length; i += HANDLER_MAP_STRIDE)
+    {
+        capabilities += llList2Integer(handler_map, i + 1);
+    }
+
+    string capabilities_json = llList2Json(JSON_ARRAY, capabilities);
+    llHTTPResponse(request_id, 200, capabilities_json);
+}
+
+UpdateServer()
+{
+    Output("Updating server...");
+    updateRequestId = llHTTPRequest(URL_UPDATE, [HTTP_METHOD, "POST", HTTP_MIMETYPE,"application/x-www-form-urlencoded"],
+        "address=" +  llEscapeURL(assignedUrl) +
+        "&private_token=" + authToken);
+}
+
+integer GetHandlerID(string name)
+{
+    integer i = 0;
+    for(i = 0; i < handler_map_length; i += HANDLER_MAP_STRIDE)
+    {
+        string handler_name = llList2String(handler_map, i);
+        if(handler_name == name)
+        {
+            return llList2Integer(handler_map, i + 1);
+        }
+    }
+
+    return 0;
+}
+
+integer ProcessRequest(list path_parts, key requestId)
+{
+    string firstPathPart = llList2String(path_parts, 0);
 
     if(firstPathPart == "Base")
     {
-        string secondPathPart = llList2String(pathParts, 1);
+        string secondPathPart = llList2String(path_parts, 1);
 
-        if(secondPathPart == "Confirm")
+        if(secondPathPart == "GetCapabilities")
+        {
+            OnGetCapabilities(requestId);
+            return TRUE;
+        }
+        else if(secondPathPart == "Reset")
+        {
+            llHTTPResponse(requestId, 200, "OK.");
+            llSleep(1.0);
+            llResetScript();
+            return TRUE;
+        }
+        else if(secondPathPart == "Confirm")
         {
             llHTTPResponse(requestId, 200, "OK.");
             return TRUE;
@@ -77,7 +108,7 @@ integer ProcessRequest(list pathParts, key requestId)
             return FALSE;
         }
 
-        llMessageLinked(LINK_THIS, handler_id, llDumpList2String(pathParts, ","), requestId);
+        llMessageLinked(LINK_THIS, handler_id, llDumpList2String(path_parts, ","), requestId);
         return TRUE;
     }
 
@@ -266,8 +297,7 @@ state StartServer
             }
             else
             {
-                Output("Updating server...");
-                updateRequestId = llHTTPRequest(URL_UPDATE, [HTTP_METHOD, "POST", HTTP_MIMETYPE,"application/x-www-form-urlencoded"], "address=" +  llEscapeURL(assignedUrl) + "&private_token=" + authToken);
+                UpdateServer();
             }
         }
         else if(method == URL_REQUEST_DENIED)
