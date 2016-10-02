@@ -232,7 +232,7 @@ state StartServer
     {
         llSetColor(<1, 0, 0>, ALL_SIDES);
         Output("Server starting...");
-        urlRequestId = llRequestURL();
+        urlRequestId = llRequestSecureURL();
     }
 
     http_request(key requestId, string method, string body)
