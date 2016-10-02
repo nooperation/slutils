@@ -14,7 +14,7 @@ integer handler_map_length = 0;
 integer HANDLER_MAP_STRIDE = 2;
 
 string kResultTag = "result";
-string kMessageTag = "message";
+string kMessageTag = "payload";
 string kResultSuccess = "success";
 string kResultError = "error";
 
