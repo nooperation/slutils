@@ -13,8 +13,8 @@
             <tr><td>owner</td><td>{{ payload.owner }}</td></tr>
             <tr><td>user</td><td>{{ payload.user }}</td></tr>
             <tr><td>address</td><td>{{ payload.address }}</td></tr>
-            <tr><td>private_token</td><td>{{ payload.private_token }}</td></tr>
-            <tr><td>public_token</td><td>{{ payload.public_token }}</td></tr>
+            <tr><td>private_token</td><td>[<a href="{% url 'server:regenerate_tokens' payload.public_token 'auth' %}">Regenerate</a>] {{ payload.private_token }}</td></tr>
+            <tr><td>public_token</td><td>[<a href="{% url 'server:regenerate_tokens' payload.public_token 'public' %}">Regenerate</a>] {{ payload.public_token }}</td></tr>
             <tr><td>name</td><td>{{ payload.name }}</td></tr>
             <tr><td>position_x</td><td>{{ payload.position_x }}</td></tr>
             <tr><td>position_y</td><td>{{ payload.position_y }}</td></tr>

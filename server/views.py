@@ -1,12 +1,15 @@
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render
 from django.views import generic
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from .models import *
 import requests
 import logging
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 JSON_RESULT_SUCCESS = 'success'
 JSON_RESULT_ERROR = 'error'
@@ -20,6 +23,24 @@ def json_success(message):
 
 def json_error(message):
     return {JSON_TAG_RESULT: JSON_RESULT_ERROR, JSON_TAG_MESSAGE: message}
+
+
+def get_lsl_headers(request):
+    position = request.META['HTTP_X_SECONDLIFE_LOCAL_POSITION'][1:-1].split(', ')
+    region = request.META['HTTP_X_SECONDLIFE_REGION'].split(' ')
+    region_name = region[0]
+
+    return {
+        'owner_name': request.META['HTTP_X_SECONDLIFE_OWNER_NAME'],
+        'object_name': request.META['HTTP_X_SECONDLIFE_OBJECT_NAME'],
+        'object_key': request.META['HTTP_X_SECONDLIFE_OBJECT_KEY'],
+        'owner_key': request.META['HTTP_X_SECONDLIFE_OWNER_KEY'],
+        'shard': request.META['HTTP_X_SECONDLIFE_SHARD'],
+        'region': region_name,
+        'position_x': position[0],
+        'position_y': position[1],
+        'position_z': position[2],
+    }
 
 
 class IndexView(LoginRequiredMixin, generic.View):
@@ -103,11 +124,16 @@ class UpdateView(generic.View):
         private_token = request.POST.get('private_token')
         address = request.POST.get('address')
 
+        try:
+            headers = get_lsl_headers(request)
+        except:
+            return JsonResponse(json_error('Missing or incorrect SL headers'))
+
         if not all(item is not None for item in [private_token, address]):
             return JsonResponse(json_error('One or more missing arguments'))
 
         try:
-            server = Server.objects.get(private_token=private_token)
+            server = Server.objects.get(private_token=private_token, uuid=headers['object_key'])
         except Server.DoesNotExist:
             return JsonResponse(json_error('Server does not exist'))
         except Server.MultipleObjectsReturned:
@@ -117,7 +143,11 @@ class UpdateView(generic.View):
         if server.type == Server.TYPE_UNREGISTERED:
             return JsonResponse(json_error('Server not registered'))
 
+        server.name = headers['object_name']
         server.address = address
+        server.position_x = headers['position_x']
+        server.position_y = headers['position_y']
+        server.position_z = headers['position_z']
         server.save()
 
         return JsonResponse(json_success('OK'))

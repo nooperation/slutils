@@ -18,6 +18,18 @@ def is_json_error(result_json):
     return JSON_TAG_RESULT in result_json and result_json[JSON_TAG_RESULT] == JSON_RESULT_ERROR
 
 
+def post_with_metadata(client, address, server, params):
+    return client.post(address,
+                       params,
+                       HTTP_X_SECONDLIFE_LOCAL_POSITION='({x}, {y}, {z})'.format(x=server.position_x, y=server.position_y, z=server.position_z),
+                       HTTP_X_SECONDLIFE_REGION='{region_name} (123, 456)'.format(region_name=server.region.name),
+                       HTTP_X_SECONDLIFE_OWNER_NAME='Owner Name',
+                       HTTP_X_SECONDLIFE_OBJECT_NAME=server.name,
+                       HTTP_X_SECONDLIFE_OBJECT_KEY=server.uuid,
+                       HTTP_X_SECONDLIFE_OWNER_KEY=server.owner,
+                       HTTP_X_SECONDLIFE_SHARD=server.shard)
+
+
 class ShardTests(TransactionTestCase):
     def test_normal_creation(self):
         """
@@ -394,7 +406,8 @@ class UpdateViewTests(TestCase):
 
     def test_normal_update(self):
         new_address = 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore'
-        response = self.client.post(reverse('server:update'), {'private_token': self.test_server.private_token, 'address': new_address})
+        response = post_with_metadata(self.client, reverse('server:update'), self.test_server, {'private_token': self.test_server.private_token, 'address': new_address})
+
         self.assertEquals(response.status_code, 200)
         self.assertTrue(is_json_success(response.json()))
         self.assertEquals(Server.objects.count(), 1)
