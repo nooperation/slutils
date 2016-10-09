@@ -55,14 +55,14 @@ class RegisterView(generic.View):
         region_name = request.POST.get('region')
         owner_name = request.POST.get('owner_name')
         owner_key = request.POST.get('owner_key')
-        server_key = request.POST.get('object_key')
+        object_key = request.POST.get('object_key')
         address = request.POST.get('address')
-        server_name = request.POST.get('object_name')
-        position_x = request.POST.get('x')
-        position_y = request.POST.get('y')
-        position_z = request.POST.get('z')
+        object_name = request.POST.get('object_name')
+        position_x = request.POST.get('position_x')
+        position_y = request.POST.get('position_y')
+        position_z = request.POST.get('position_z')
 
-        if not all(item is not None for item in [shard_name, region_name, owner_name, owner_key, server_key, address, server_name, position_x, position_y, position_z]):
+        if not all(item is not None for item in [shard_name, region_name, owner_name, owner_key, object_key, address, object_name, position_x, position_y, position_z]):
             return JsonResponse(json_error('One or more missing arguments'))
 
         shard, created = Shard.objects.get_or_create(name=shard_name)
@@ -75,7 +75,7 @@ class RegisterView(generic.View):
             return JsonResponse(json_error('Failed to generate auth tokens'))
 
         try:
-            existing_server = Server.objects.filter(uuid=server_key).first()
+            existing_server = Server.objects.filter(object_key=object_key).first()
             if existing_server is not None:
                 if existing_server.type != Server.TYPE_UNREGISTERED:
                     return JsonResponse(json_error('Server already registered'))
@@ -88,7 +88,7 @@ class RegisterView(generic.View):
                     existing_server.address = address
                     existing_server.private_token = private_token
                     existing_server.public_token = public_token
-                    existing_server.name = server_name
+                    existing_server.object_name = object_name
                     existing_server.position_x = position_x
                     existing_server.position_y = position_y
                     existing_server.position_z = position_z
@@ -96,7 +96,8 @@ class RegisterView(generic.View):
                     existing_server.save()
             else:
                 Server.objects.create(
-                    uuid=server_key,
+                    object_key=object_key,
+                    object_name=object_name,
                     type=Server.TYPE_UNREGISTERED,
                     shard=shard,
                     region=region,
@@ -105,7 +106,6 @@ class RegisterView(generic.View):
                     address=address,
                     private_token=private_token,
                     public_token=public_token,
-                    name=server_name,
                     position_x=position_x,
                     position_y=position_y,
                     position_z=position_z,
@@ -133,7 +133,7 @@ class UpdateView(generic.View):
             return JsonResponse(json_error('One or more missing arguments'))
 
         try:
-            server = Server.objects.get(private_token=private_token, uuid=headers['object_key'])
+            server = Server.objects.get(private_token=private_token, object_key=headers['object_key'])
         except Server.DoesNotExist:
             return JsonResponse(json_error('Server does not exist'))
         except Server.MultipleObjectsReturned:
@@ -143,7 +143,7 @@ class UpdateView(generic.View):
         if server.type == Server.TYPE_UNREGISTERED:
             return JsonResponse(json_error('Server not registered'))
 
-        server.name = headers['object_name']
+        server.object_name = headers['object_name']
         server.address = address
         server.position_x = headers['position_x']
         server.position_y = headers['position_y']

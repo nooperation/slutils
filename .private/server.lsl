@@ -291,9 +291,9 @@ state StartServer
                     "&object_key=" + (string)llGetKey() +
                     "&address=" +  llEscapeURL(assignedUrl) +
                     "&object_name=" + llEscapeURL(llGetObjectName()) +
-                    "&x=" + (string)llRound(pos.x) +
-                    "&y=" + (string)llRound(pos.y) +
-                    "&z=" + (string)llRound(pos.z));
+                    "&position_x=" + (string)llRound(pos.x) +
+                    "&position_y=" + (string)llRound(pos.y) +
+                    "&position_z=" + (string)llRound(pos.z));
             }
             else
             {

@@ -87,13 +87,14 @@ class Server(models.Model):
     def regenerate_public_token(self):
         self.public_token = self.generate_public_token()
 
-    uuid = models.CharField(max_length=36, unique=True, validators=[
+    object_key = models.CharField(max_length=36, unique=True, validators=[
         RegexValidator(
             regex='^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$',
-            message='Invalid UUID',
-            code='invalid_uuid'
+            message='Invalid object key',
+            code='invalid object key'
         ),
     ])
+    object_name = models.CharField(max_length=255)
     type = models.IntegerField(choices=SERVER_TYPE_CHOICES, default=TYPE_UNREGISTERED)
     shard = models.ForeignKey(Shard, on_delete=models.DO_NOTHING)
     region = models.ForeignKey(Region, on_delete=models.DO_NOTHING)
@@ -102,7 +103,6 @@ class Server(models.Model):
     address = models.URLField()
     private_token = models.CharField(max_length=64, unique=True)
     public_token = models.CharField(max_length=64, unique=True)
-    name = models.CharField(max_length=255)
     position_x = models.FloatField()
     position_y = models.FloatField()
     position_z = models.FloatField()

@@ -24,9 +24,9 @@ def post_with_metadata(client, address, server, params):
                        HTTP_X_SECONDLIFE_LOCAL_POSITION='({x}, {y}, {z})'.format(x=server.position_x, y=server.position_y, z=server.position_z),
                        HTTP_X_SECONDLIFE_REGION='{region_name} (123, 456)'.format(region_name=server.region.name),
                        HTTP_X_SECONDLIFE_OWNER_NAME='Owner Name',
-                       HTTP_X_SECONDLIFE_OBJECT_NAME=server.name,
-                       HTTP_X_SECONDLIFE_OBJECT_KEY=server.uuid,
-                       HTTP_X_SECONDLIFE_OWNER_KEY=server.owner,
+                       HTTP_X_SECONDLIFE_OBJECT_NAME=server.object_name,
+                       HTTP_X_SECONDLIFE_OBJECT_KEY=server.object_key,
+                       HTTP_X_SECONDLIFE_OWNER_KEY=server.owner.uuid,
                        HTTP_X_SECONDLIFE_SHARD=server.shard)
 
 
@@ -204,12 +204,12 @@ class ServerTests(TestCase):
     def test_normal_creation(self):
         valid_servers = [
             {
-                'uuid': '12345678-2a3e-408a-9b80-1234567890ab',
+                'object_key': '12345678-2a3e-408a-9b80-1234567890ab',
                 'type': Server.TYPE_UNREGISTERED,
                 'shard': self.first_shard,
                 'region': self.first_region,
                 'owner': self.first_agent,
-                'name': 'Server A',
+                'object_name': 'Server A',
                 'private_token': '11111111111111111111111111111111',
                 'public_token': '10101010101010101010101010101010',
                 'address': 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore',
@@ -219,12 +219,12 @@ class ServerTests(TestCase):
                 'enabled': True
             },
             {
-                'uuid': '00000000-0000-0000-0000-000000000001',
+                'object_key': '00000000-0000-0000-0000-000000000001',
                 'type': Server.TYPE_UNREGISTERED,
                 'shard': self.first_shard,
                 'region': self.first_region,
                 'owner': self.first_agent,
-                'name': 'Server B',
+                'object_name': 'Server B',
                 'private_token': '22222222222222222222222222222222',
                 'public_token': '20202020202020202020202020202020',
                 'address': 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_2_ok?ignore',
@@ -238,12 +238,12 @@ class ServerTests(TestCase):
         servers = []
         for valid_server in valid_servers:
             server = Server.objects.create(
-                uuid=valid_server['uuid'],
+                object_key=valid_server['object_key'],
+                object_name=valid_server['object_name'],
                 type=valid_server['type'],
                 shard=valid_server['shard'],
                 region=valid_server['region'],
                 owner=valid_server['owner'],
-                name=valid_server['name'],
                 address=valid_server['address'],
                 private_token=valid_server['private_token'],
                 public_token=valid_server['public_token'],
@@ -269,9 +269,9 @@ class RegisterViewTests(TransactionTestCase):
             'object_name': 'Object name goes here',
             'region': 'Test_region',
             'address': 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore',
-            'x': 1.2345,
-            'y': 2.3456,
-            'z': 3.4567
+            'position_x': 1.2345,
+            'position_y': 2.3456,
+            'position_z': 3.4567
         }
 
     def test_new_server(self):
@@ -285,12 +285,12 @@ class RegisterViewTests(TransactionTestCase):
         self.assertEquals(first_server.owner.uuid, self.server_data['owner_key'])
         self.assertEquals(first_server.owner.name, self.server_data['owner_name'])
         self.assertEquals(first_server.region.name, self.server_data['region'])
-        self.assertEquals(first_server.uuid, self.server_data['object_key'])
-        self.assertEquals(first_server.name, self.server_data['object_name'])
+        self.assertEquals(first_server.object_key, self.server_data['object_key'])
+        self.assertEquals(first_server.object_name, self.server_data['object_name'])
         self.assertEquals(first_server.address, self.server_data['address'])
-        self.assertEquals(first_server.position_x, self.server_data['x'])
-        self.assertEquals(first_server.position_y, self.server_data['y'])
-        self.assertEquals(first_server.position_z, self.server_data['z'])
+        self.assertEquals(first_server.position_x, self.server_data['position_x'])
+        self.assertEquals(first_server.position_y, self.server_data['position_y'])
+        self.assertEquals(first_server.position_z, self.server_data['position_z'])
         self.assertEquals(first_server.type, Server.TYPE_UNREGISTERED)
 
     def test_existing_unregistered_server(self):
@@ -309,9 +309,9 @@ class RegisterViewTests(TransactionTestCase):
             'object_name': 'New object name',
             'region': 'New_region',
             'address': 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_2_ok?ignore',
-            'x': 2.3456,
-            'y': 3.4567,
-            'z': 4.5678
+            'position_x': 2.3456,
+            'position_y': 3.4567,
+            'position_z': 4.5678
         }
         existing_server_response = self.client.post(reverse('server:register'), new_server_data)
         self.assertEquals(existing_server_response.status_code, 200)
@@ -326,12 +326,12 @@ class RegisterViewTests(TransactionTestCase):
         self.assertEquals(first_server.owner.uuid, new_server_data['owner_key'])
         self.assertEquals(first_server.owner.name, new_server_data['owner_name'])
         self.assertEquals(first_server.region.name, new_server_data['region'])
-        self.assertEquals(first_server.uuid, new_server_data['object_key'])
-        self.assertEquals(first_server.name, new_server_data['object_name'])
+        self.assertEquals(first_server.object_key, new_server_data['object_key'])
+        self.assertEquals(first_server.object_name, new_server_data['object_name'])
         self.assertEquals(first_server.address, new_server_data['address'])
-        self.assertEquals(first_server.position_x, new_server_data['x'])
-        self.assertEquals(first_server.position_y, new_server_data['y'])
-        self.assertEquals(first_server.position_z, new_server_data['z'])
+        self.assertEquals(first_server.position_x, new_server_data['position_x'])
+        self.assertEquals(first_server.position_y, new_server_data['position_y'])
+        self.assertEquals(first_server.position_z, new_server_data['position_z'])
         self.assertEquals(first_server.type, Server.TYPE_UNREGISTERED)
 
     def test_existing_registered_server(self):
@@ -339,12 +339,12 @@ class RegisterViewTests(TransactionTestCase):
         first_region = Region.objects.create(name='Region A', shard=first_shard)
         first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
         existing_server = Server.objects.create(
-            uuid=self.server_data['object_key'],
+            object_key=self.server_data['object_key'],
+            object_name='Server A',
             type=Server.TYPE_DEFAULT,
             shard=first_shard,
             region=first_region,
             owner=first_agent,
-            name='Server A',
             private_token='11111111111111111111111111111111',
             public_token='10101010101010101010101010101010',
             address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_2_ok?ignore',
@@ -374,12 +374,12 @@ class UpdateViewTests(TestCase):
         first_region = Region.objects.create(name='Region A', shard=first_shard)
         first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
         self.server_data = {
-            'uuid': '00000000-0000-0000-0000-000000000001',
+            'object_key': '00000000-0000-0000-0000-000000000001',
+            'object_name': 'Server B',
             'type': Server.TYPE_DEFAULT,
             'shard': first_shard,
             'region': first_region,
             'owner': first_agent,
-            'name': 'Server B',
             'private_token': '11111111111111111111111111111111',
             'public_token': '10101010101010101010101010101010',
             'address': 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore',
@@ -389,12 +389,12 @@ class UpdateViewTests(TestCase):
             'enabled': False
         }
         self.test_server = Server.objects.create(
-            uuid=self.server_data['uuid'],
+            object_key=self.server_data['object_key'],
+            object_name=self.server_data['object_name'],
             type=self.server_data['type'],
             shard=self.server_data['shard'],
             region=self.server_data['region'],
             owner=self.server_data['owner'],
-            name=self.server_data['name'],
             address=self.server_data['address'],
             private_token=self.server_data['private_token'],
             public_token=self.server_data['public_token'],
@@ -442,12 +442,12 @@ class ConfirmServerView(TestCase):
         first_region = Region.objects.create(name='Region A', shard=first_shard)
         first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
         self.test_server = Server.objects.create(
-            uuid='00000000-0000-0000-0000-000000000001',
+            object_key='00000000-0000-0000-0000-000000000001',
+            object_name='Server B',
             type=Server.TYPE_UNREGISTERED,
             shard=first_shard,
             region=first_region,
             owner=first_agent,
-            name='Server B',
             address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore',
             private_token=self.private_token,
             public_token='10101010101010101010101010101010',
@@ -483,13 +483,13 @@ class SetEnabledView(TestCase):
         first_region = Region.objects.create(name='Region A', shard=first_shard)
         first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
         self.test_server = Server.objects.create(
-            uuid='00000000-0000-0000-0000-000000000001',
+            object_key='00000000-0000-0000-0000-000000000001',
+            object_name='Server B',
             type=Server.TYPE_DEFAULT,
             shard=first_shard,
             region=first_region,
             owner=first_agent,
             user=self.user,
-            name='Server B',
             address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore',
             private_token=self.private_token,
             public_token=self.public_token,
@@ -544,13 +544,13 @@ class RegenerateTokenViewTests(TestCase):
         first_region = Region.objects.create(name='Region A', shard=first_shard)
         first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
         self.test_server = Server.objects.create(
-            uuid='00000000-0000-0000-0000-000000000001',
+            object_key='00000000-0000-0000-0000-000000000001',
+            object_name='Server B',
             type=Server.TYPE_DEFAULT,
             shard=first_shard,
             region=first_region,
             owner=first_agent,
             user=self.user,
-            name='Server B',
             address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore',
             private_token=self.private_token,
             public_token=self.public_token,
@@ -616,13 +616,13 @@ class RegenerateTokenViewTests(TestCase):
         self.client.login(username=self.username, password=self.password)
 
         unregistered_server = Server.objects.create(
-            uuid='00000000-0000-0000-0000-000000000002',
+            object_key='00000000-0000-0000-0000-000000000002',
+            object_name='Unregistered server',
             type=Server.TYPE_UNREGISTERED,
             shard=self.test_server.shard,
             region=self.test_server.region,
             owner=self.test_server.owner,
             user=self.test_server.user,
-            name='Unregistered server',
             address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_2_ok?ignore',
             private_token='ffffffffffffffffffffffffffffffff',
             public_token='eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
@@ -634,7 +634,7 @@ class RegenerateTokenViewTests(TestCase):
 
         # Regenerate only the public token then restore the server to its original state.
         response = self.client.get(reverse('server:regenerate_tokens', kwargs={'public_token': unregistered_server.public_token, 'token_type': 'public'}))
-        updated_server = Server.objects.filter(uuid=unregistered_server.uuid).first()
+        updated_server = Server.objects.filter(object_key=unregistered_server.object_key).first()
         self.assertTrue(is_json_error(response.json()))
         self.assertEqual(updated_server.public_token, unregistered_server.public_token)
         self.assertEqual(updated_server.private_token, unregistered_server.private_token)
@@ -653,13 +653,13 @@ class GetServerStatusViewTests(TestCase):
         first_region = Region.objects.create(name='Region A', shard=first_shard)
         first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
         self.test_server = Server.objects.create(
-            uuid='00000000-0000-0000-0000-000000000001',
+            object_key='00000000-0000-0000-0000-000000000001',
+            object_name='Server B',
             type=Server.TYPE_DEFAULT,
             shard=first_shard,
             region=first_region,
             owner=first_agent,
             user=self.user,
-            name='Server B',
             address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore',
             private_token=self.private_token,
             public_token=self.public_token,
@@ -671,13 +671,13 @@ class GetServerStatusViewTests(TestCase):
         self.private_token_offline = '22222222222222222222222222222222'
         self.public_token_offline = '20202020202020202020202020202020'
         self.test_server_offline = Server.objects.create(
-            uuid='00000000-0000-0000-0000-000000000002',
+            object_key='00000000-0000-0000-0000-000000000002',
+            object_name='Server B',
             type=Server.TYPE_DEFAULT,
             shard=first_shard,
             region=first_region,
             owner=first_agent,
             user=self.user,
-            name='Server B',
             address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_offline?ignore',
             private_token=self.private_token_offline,
             public_token=self.public_token_offline,
