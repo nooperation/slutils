@@ -60,7 +60,7 @@ class RegisterView(generic.View):
 
         if not all(item is not None for item in [address]):
             return JsonResponse(json_error('One or more missing arguments'))
-        if not all(value is not None for key,value in headers.items()):
+        if not all(value is not None for key, value in headers.items()):
             return JsonResponse(json_error('One or more missing META arguments'))
 
         shard, created = Shard.objects.get_or_create(name=headers['shard'])
@@ -129,6 +129,8 @@ class UpdateView(generic.View):
 
         if not all(item is not None for item in [private_token, address]):
             return JsonResponse(json_error('One or more missing arguments'))
+        if not all(value is not None for key, value in headers.items()):
+            return JsonResponse(json_error('One or more missing META arguments'))
 
         try:
             server = Server.objects.get(private_token=private_token, object_key=headers['object_key'])

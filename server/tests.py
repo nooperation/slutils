@@ -463,7 +463,7 @@ class UpdateViewTests(TestCase):
         new_address = 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_2_ok?ignore'
 
         for invalid_private_token in invalid_private_tokens:
-            response = self.client.post(reverse('server:update'), {'private_token': invalid_private_token, 'address': new_address})
+            response = post_with_metadata(self.client, reverse('server:update'), self.test_server, {'private_token': invalid_private_token, 'address': new_address})
             self.assertTrue(is_json_error(response.json()))
             first_server = Server.objects.first()
             self.assertEquals(first_server.address, self.server_data['address'])
