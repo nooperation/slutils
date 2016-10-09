@@ -259,6 +259,43 @@ class ServerTests(TestCase):
 
 
 class RegisterViewTests(TransactionTestCase):
+    def post_with_metadata(self, address, server):
+        params = None
+        position = None
+        region = None
+        owner_name = None
+        object_name = None
+        object_key = None
+        owner_key = None
+        shard = None
+
+        if 'address' in server:
+            params = {'address': server['address']}
+        if 'position_x' in server and 'position_y' in server and 'position_z' in server:
+            position = '({x}, {y}, {z})'.format(x=server['position_x'], y=server['position_y'], z=server['position_z'])
+        if 'region' in server:
+            region = '{region_name} (123, 456)'.format(region_name=server['region'])
+        if 'owner_name' in server:
+            owner_name = server['owner_name']
+        if 'object_name' in server:
+            object_name = server['object_name']
+        if 'object_key' in server:
+            object_key = server['object_key']
+        if 'owner_key' in server:
+            owner_key = server['owner_key']
+        if 'shard' in server:
+            shard = server['shard']
+
+        return self.client.post(address,
+                                params,
+                                HTTP_X_SECONDLIFE_LOCAL_POSITION=position,
+                                HTTP_X_SECONDLIFE_REGION=region,
+                                HTTP_X_SECONDLIFE_OWNER_NAME=owner_name,
+                                HTTP_X_SECONDLIFE_OBJECT_NAME=object_name,
+                                HTTP_X_SECONDLIFE_OBJECT_KEY=object_key,
+                                HTTP_X_SECONDLIFE_OWNER_KEY=owner_key,
+                                HTTP_X_SECONDLIFE_SHARD=shard)
+
     def setUp(self):
         self.object_key = '00000000-0000-0000-0000-000000000001'
         self.server_data = {
@@ -275,7 +312,7 @@ class RegisterViewTests(TransactionTestCase):
         }
 
     def test_new_server(self):
-        response = self.client.post(reverse('server:register'), self.server_data)
+        response = self.post_with_metadata(reverse('server:register'), self.server_data)
         self.assertEquals(response.status_code, 200)
         self.assertTrue(is_json_success(response.json()))
         self.assertEquals(Server.objects.count(), 1)
@@ -295,7 +332,7 @@ class RegisterViewTests(TransactionTestCase):
 
     def test_existing_unregistered_server(self):
         # Create create our first server
-        new_server_response = self.client.post(reverse('server:register'), self.server_data)
+        new_server_response = self.post_with_metadata(reverse('server:register'), self.server_data)
         self.assertEquals(new_server_response.status_code, 200)
         self.assertTrue(is_json_success(new_server_response.json()))
 
@@ -313,7 +350,7 @@ class RegisterViewTests(TransactionTestCase):
             'position_y': 3.4567,
             'position_z': 4.5678
         }
-        existing_server_response = self.client.post(reverse('server:register'), new_server_data)
+        existing_server_response = self.post_with_metadata(reverse('server:register'), new_server_data)
         self.assertEquals(existing_server_response.status_code, 200)
         self.assertTrue(is_json_success(existing_server_response.json()))
 
@@ -353,7 +390,7 @@ class RegisterViewTests(TransactionTestCase):
             position_z=3.45,
             enabled=True)
 
-        response = self.client.post(reverse('server:register'), self.server_data)
+        response = self.post_with_metadata(reverse('server:register'), self.server_data)
         self.assertEquals(response.status_code, 200)
         self.assertTrue(is_json_error(response.json()))
         self.assertEquals(Server.objects.count(), 1)
@@ -362,7 +399,7 @@ class RegisterViewTests(TransactionTestCase):
         for key in self.server_data:
             partial_server_data = self.server_data.copy()
             del partial_server_data[key]
-            response = self.client.post(reverse('server:register'), partial_server_data)
+            response = self.post_with_metadata(reverse('server:register'), partial_server_data)
             self.assertTrue(is_json_error(response.json()))
 
         self.assertEquals(Server.objects.count(), 0)

@@ -51,23 +51,21 @@ class IndexView(LoginRequiredMixin, generic.View):
 @method_decorator(csrf_exempt, name='dispatch')
 class RegisterView(generic.View):
     def post(self, request):
-        shard_name = request.POST.get('shard')
-        region_name = request.POST.get('region')
-        owner_name = request.POST.get('owner_name')
-        owner_key = request.POST.get('owner_key')
-        object_key = request.POST.get('object_key')
         address = request.POST.get('address')
-        object_name = request.POST.get('object_name')
-        position_x = request.POST.get('position_x')
-        position_y = request.POST.get('position_y')
-        position_z = request.POST.get('position_z')
 
-        if not all(item is not None for item in [shard_name, region_name, owner_name, owner_key, object_key, address, object_name, position_x, position_y, position_z]):
+        try:
+            headers = get_lsl_headers(request)
+        except:
+            return JsonResponse(json_error('Missing or incorrect SL headers'))
+
+        if not all(item is not None for item in [address]):
             return JsonResponse(json_error('One or more missing arguments'))
+        if not all(value is not None for key,value in headers.items()):
+            return JsonResponse(json_error('One or more missing META arguments'))
 
-        shard, created = Shard.objects.get_or_create(name=shard_name)
-        region, created = Region.objects.get_or_create(shard=shard, name=region_name)
-        owner, created = Agent.objects.get_or_create(shard=shard, name=owner_name, uuid=owner_key)
+        shard, created = Shard.objects.get_or_create(name=headers['shard'])
+        region, created = Region.objects.get_or_create(shard=shard, name=headers['region'])
+        owner, created = Agent.objects.get_or_create(shard=shard, name=headers['owner_name'], uuid=headers['owner_key'])
         private_token = Server.generate_private_token()
         public_token = Server.generate_public_token()
 
@@ -75,7 +73,7 @@ class RegisterView(generic.View):
             return JsonResponse(json_error('Failed to generate auth tokens'))
 
         try:
-            existing_server = Server.objects.filter(object_key=object_key).first()
+            existing_server = Server.objects.filter(object_key=headers['object_key']).first()
             if existing_server is not None:
                 if existing_server.type != Server.TYPE_UNREGISTERED:
                     return JsonResponse(json_error('Server already registered'))
@@ -88,16 +86,16 @@ class RegisterView(generic.View):
                     existing_server.address = address
                     existing_server.private_token = private_token
                     existing_server.public_token = public_token
-                    existing_server.object_name = object_name
-                    existing_server.position_x = position_x
-                    existing_server.position_y = position_y
-                    existing_server.position_z = position_z
+                    existing_server.object_name = headers['object_name']
+                    existing_server.position_x = headers['position_x']
+                    existing_server.position_y = headers['position_y']
+                    existing_server.position_z = headers['position_z']
                     existing_server.enabled = False
                     existing_server.save()
             else:
                 Server.objects.create(
-                    object_key=object_key,
-                    object_name=object_name,
+                    object_key=headers['object_key'],
+                    object_name=headers['object_name'],
                     type=Server.TYPE_UNREGISTERED,
                     shard=shard,
                     region=region,
@@ -106,9 +104,9 @@ class RegisterView(generic.View):
                     address=address,
                     private_token=private_token,
                     public_token=public_token,
-                    position_x=position_x,
-                    position_y=position_y,
-                    position_z=position_z,
+                    position_x=headers['position_x'],
+                    position_y=headers['position_y'],
+                    position_z=headers['position_z'],
                     enabled=False
                 )
         except Exception as ex:
