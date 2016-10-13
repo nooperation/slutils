@@ -109,3 +109,9 @@ class Server(models.Model):
     enabled = models.BooleanField()
     created_on = models.DateTimeField(auto_now_add=True)
     updated_on = models.DateTimeField(auto_now=True)
+
+class ServerProxy(models.Model):
+    proxy_name = models.CharField(max_length=255, unique=True)
+    server = models.ForeignKey(Server, on_delete=models.DO_NOTHING)
+    forced_path = models.CharField(null=True, max_length=255)
+    allow_user_query = models.BooleanField(default=False)

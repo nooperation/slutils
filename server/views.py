@@ -272,3 +272,67 @@ class StatusView(generic.View):
 
         return JsonResponse(json_success('Server online'))
 
+
+class CreateProxyView(LoginRequiredMixin, generic.View):
+    def get(self, request):
+        return HttpResponse('Invalid method', status=405)
+
+    def post(self, request):
+        public_token = request.POST.get('public_token')
+        proxy_name = request.POST.get('proxy_name')
+        forced_path = request.POST.get('forced_path')
+        allow_user_query = request.POST.get('allow_user_query')
+
+        if not all(item is not None for item in [public_token, proxy_name]):
+            return JsonResponse(json_error('One or more missing arguments'))
+
+        if allow_user_query is not None:
+            allow_user_query = True
+        else:
+            allow_user_query = False
+
+        try:
+            server = Server.objects.get(user=request.user, public_token=public_token)
+        except Server.DoesNotExist:
+            return JsonResponse(json_error('Server does not exist'))
+        except Server.MultipleObjectsReturned:
+            logging.exception("Multiple objects returned")
+            return JsonResponse(json_error('Multiple servers contain the same token'))
+
+        if server.type == Server.TYPE_UNREGISTERED:
+            return JsonResponse(json_error('Server not registered'))
+
+        try:
+            server_proxy = ServerProxy.objects.create(proxy_name=proxy_name, server=server, forced_path=forced_path, allow_user_query=allow_user_query)
+        except ServerProxy.DoesNotExist:
+            return JsonResponse(json_error('Server does not exist'))
+        except ServerProxy.MultipleObjectsReturned:
+            logging.exception("Multiple objects returned")
+            return JsonResponse(json_error('Multiple servers contain the same token'))
+
+        return JsonResponse(json_success(server_proxy.proxy_name + (server_proxy.forced_path or "")))
+
+
+class ProxyView(generic.View):
+    def get(self, request, proxy_name, user_query):
+        try:
+            server_proxy = ServerProxy.objects.get(proxy_name=proxy_name)
+        except ServerProxy.DoesNotExist:
+            return JsonResponse(json_error('Unknown proxy'))
+        except ServerProxy.MultipleObjectsReturned:
+            logging.exception("Multiple proxies with the same name")
+            return JsonResponse(json_error('Multiple proxies with the same name'))
+
+        try:
+            full_path = server_proxy.server.address + "?path=/"
+            if server_proxy.forced_path is not None:
+                full_path = full_path + server_proxy.forced_path
+            if server_proxy.allow_user_query:
+                full_path = full_path + user_query
+
+            logging.debug("Requesting: " + full_path)
+            server_request = requests.get(full_path, verify=False)
+            return HttpResponse(server_request.text, status=server_request.status_code, content_type=server_request.headers['Content-Type'])
+        except:
+            logging.exception("Failed to connect to server for ProxyView")
+            return JsonResponse(json_error('Unable to contact server'))

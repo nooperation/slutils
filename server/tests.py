@@ -739,3 +739,44 @@ class GetServerStatusViewTests(TestCase):
         for invalid_token in invalid_public_tokens:
             response = self.client.get(reverse('server:status', kwargs={'public_token': invalid_token}))
             self.assertTrue(is_json_error(response.json()))
+
+
+class CreateProxyViewTests(TestCase):
+    def setUp(self):
+        self.token_types = ['auth', 'public', 'both']
+        self.username = 'test_user'
+        self.password = 'asdf'
+        self.user = User.objects.create_user(username=self.username, email='jdoe@example.com', password=self.password)
+        self.private_token = '11111111111111111111111111111111'
+        self.public_token = '10101010101010101010101010101010'
+        first_shard = Shard.objects.create(name='Shard A')
+        first_region = Region.objects.create(name='Region A', shard=first_shard)
+        first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
+        self.test_server = Server.objects.create(
+            object_key='00000000-0000-0000-0000-000000000001',
+            object_name='Server B',
+            type=Server.TYPE_DEFAULT,
+            shard=first_shard,
+            region=first_region,
+            owner=first_agent,
+            user=self.user,
+            address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore',
+            private_token=self.private_token,
+            public_token=self.public_token,
+            position_x=4.44,
+            position_y=5.55,
+            position_z=6.66,
+            enabled=False
+        )
+
+    def test_normal_usage(self):
+        self.client.login(username=self.username, password=self.password)
+
+        response = self.client.post(reverse('server:create_proxy'), {'public_token': self.public_token, 'proxy_name': 'test_proxy'})
+        self.assertTrue(is_json_success(response.json()))
+
+        first_proxy = ServerProxy.objects.first()
+        self.assertEqual(first_proxy.proxy_name, 'test_proxy')
+        self.assertEqual(first_proxy.server, self.test_server)
+        self.assertIsNone(first_proxy.forced_path)
+        self.assertFalse(first_proxy.allow_user_query)
