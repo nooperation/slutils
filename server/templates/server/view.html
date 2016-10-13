@@ -3,7 +3,7 @@
 {% block content %}
     {% if result == "success" %}
         <table class="table table-striped table-hover ">
-            <caption>Server '{{ payload.name }}'</caption>
+            <caption>Server '{{ payload.object_name }}'</caption>
             <thead>
                 <tr><th>Key</th><th>Value</th></tr>
             </thead>
@@ -15,7 +15,7 @@
             <tr><td>address</td><td>{{ payload.address }}</td></tr>
             <tr><td>private_token</td><td>[<a href="{% url 'server:regenerate_tokens' payload.public_token 'auth' %}">Regenerate</a>] {{ payload.private_token }}</td></tr>
             <tr><td>public_token</td><td>[<a href="{% url 'server:regenerate_tokens' payload.public_token 'public' %}">Regenerate</a>] {{ payload.public_token }}</td></tr>
-            <tr><td>name</td><td>{{ payload.name }}</td></tr>
+            <tr><td>name</td><td>{{ payload.object_name }}</td></tr>
             <tr><td>position_x</td><td>{{ payload.position_x }}</td></tr>
             <tr><td>position_y</td><td>{{ payload.position_y }}</td></tr>
             <tr><td>position_z</td><td>{{ payload.position_z }}</td></tr>

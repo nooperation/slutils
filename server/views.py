@@ -132,6 +132,9 @@ class UpdateView(generic.View):
         if not all(value is not None for key, value in headers.items()):
             return JsonResponse(json_error('One or more missing META arguments'))
 
+        if Server.objects.filter(object_key=headers['object_key']).count() == 0:
+            return JsonResponse(json_error('Object not registered.'))
+
         try:
             server = Server.objects.get(private_token=private_token, object_key=headers['object_key'])
         except Server.DoesNotExist:

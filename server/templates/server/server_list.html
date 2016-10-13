@@ -13,7 +13,7 @@
     <tbody>
     {% for item in servers_list %}
     <tr>
-        <td class="text-right"><a href="{% url 'server:view' item.public_token %}">{{ item.name }}</a></td>
+        <td class="text-right"><a href="{% url 'server:view' item.public_token %}">{{ item.object_name }}</a></td>
         <td class="text-right">{{ item.address }}</td>
     </tr>
     {% endfor %}
