@@ -336,3 +336,14 @@ class ProxyView(generic.View):
         except:
             logging.exception("Failed to connect to server for ProxyView")
             return JsonResponse(json_error('Unable to contact server'))
+
+
+class DebugConfirmView(generic.View):
+    def get(self, request, server_name):
+        # Note to self: Never remove the 'request' parameter or you'll end up with "get() got multiple values for argument 'server_name'"
+        return HttpResponse('OK.')
+
+
+class DebugProxyView(generic.View):
+    def get(self, request, user_query):
+        return HttpResponse('OK.')

@@ -1,3 +1,4 @@
+from django.test import LiveServerTestCase
 from django.test import TransactionTestCase, TestCase
 from django.db import IntegrityError
 from django.core.exceptions import ValidationError
@@ -212,7 +213,7 @@ class ServerTests(TestCase):
                 'object_name': 'Server A',
                 'private_token': '11111111111111111111111111111111',
                 'public_token': '10101010101010101010101010101010',
-                'address': 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore',
+                'address': 'http://example.com/address_is_not_requested_in_this_view',
                 'position_x': 1.23,
                 'position_y': 2.34,
                 'position_z': 3.45,
@@ -227,7 +228,7 @@ class ServerTests(TestCase):
                 'object_name': 'Server B',
                 'private_token': '22222222222222222222222222222222',
                 'public_token': '20202020202020202020202020202020',
-                'address': 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_2_ok?ignore',
+                'address': 'http://example.com/address_is_not_requested_in_this_view2',
                 'position_x': 4.44,
                 'position_y': 5.55,
                 'position_z': 6.66,
@@ -258,7 +259,7 @@ class ServerTests(TestCase):
         self.assertSequenceEqual(Server.objects.all(), servers)
 
 
-class RegisterViewTests(TransactionTestCase):
+class RegisterViewTests(TestCase):
     def post_with_metadata(self, address, server):
         params = None
         position = None
@@ -305,7 +306,7 @@ class RegisterViewTests(TransactionTestCase):
             'object_key': self.object_key,
             'object_name': 'Object name goes here',
             'region': 'Test_region',
-            'address': 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore',
+            'address': 'http://example.com/address_is_not_requested_in_this_view',
             'position_x': 1.2345,
             'position_y': 2.3456,
             'position_z': 3.4567
@@ -345,7 +346,7 @@ class RegisterViewTests(TransactionTestCase):
             'object_key': self.object_key,
             'object_name': 'New object name',
             'region': 'New_region',
-            'address': 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_2_ok?ignore',
+            'address': 'http://example.com/address_is_not_requested_in_this_view2',
             'position_x': 2.3456,
             'position_y': 3.4567,
             'position_z': 4.5678
@@ -384,7 +385,7 @@ class RegisterViewTests(TransactionTestCase):
             owner=first_agent,
             private_token='11111111111111111111111111111111',
             public_token='10101010101010101010101010101010',
-            address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_2_ok?ignore',
+            address='http://example.com/address_is_not_requested_in_this_view2',
             position_x=1.23,
             position_y=2.34,
             position_z=3.45,
@@ -419,7 +420,7 @@ class UpdateViewTests(TestCase):
             'owner': first_agent,
             'private_token': '11111111111111111111111111111111',
             'public_token': '10101010101010101010101010101010',
-            'address': 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore',
+            'address': 'http://example.com/address_is_not_requested_in_this_view',
             'position_x': 4.44,
             'position_y': 5.55,
             'position_z': 6.66,
@@ -442,7 +443,7 @@ class UpdateViewTests(TestCase):
         )
 
     def test_normal_update(self):
-        new_address = 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore'
+        new_address = 'http://example.com/address_is_not_requested_in_this_view_2'
         response = post_with_metadata(self.client, reverse('server:update'), self.test_server, {'private_token': self.test_server.private_token, 'address': new_address})
 
         self.assertEquals(response.status_code, 200)
@@ -460,7 +461,7 @@ class UpdateViewTests(TestCase):
             None
         ]
 
-        new_address = 'https://dl.dropboxusercontent.com/u/50597639/server/loopback_2_ok?ignore'
+        new_address = 'http://example.com/address_is_not_requested_in_this_view_2'
 
         for invalid_private_token in invalid_private_tokens:
             response = post_with_metadata(self.client, reverse('server:update'), self.test_server, {'private_token': invalid_private_token, 'address': new_address})
@@ -469,7 +470,7 @@ class UpdateViewTests(TestCase):
             self.assertEquals(first_server.address, self.server_data['address'])
 
 
-class ConfirmServerView(TestCase):
+class ConfirmServerView(LiveServerTestCase):
     def setUp(self):
         self.username = 'test_user'
         self.password = 'asdf'
@@ -485,7 +486,7 @@ class ConfirmServerView(TestCase):
             shard=first_shard,
             region=first_region,
             owner=first_agent,
-            address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore',
+            address=self.live_server_url + reverse('server:debug_confirm', kwargs={'server_name': 'server1'}),
             private_token=self.private_token,
             public_token='10101010101010101010101010101010',
             position_x=4.44,
@@ -527,7 +528,7 @@ class SetEnabledView(TestCase):
             region=first_region,
             owner=first_agent,
             user=self.user,
-            address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore',
+            address='http://example.com/address_is_not_requested_in_this_view',
             private_token=self.private_token,
             public_token=self.public_token,
             position_x=4.44,
@@ -588,7 +589,7 @@ class RegenerateTokenViewTests(TestCase):
             region=first_region,
             owner=first_agent,
             user=self.user,
-            address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore',
+            address='http://example.com/address_is_not_requested_in_this_view',
             private_token=self.private_token,
             public_token=self.public_token,
             position_x=4.44,
@@ -660,7 +661,7 @@ class RegenerateTokenViewTests(TestCase):
             region=self.test_server.region,
             owner=self.test_server.owner,
             user=self.test_server.user,
-            address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_2_ok?ignore',
+            address='http://example.com/address_is_not_requested_in_this_view_2',
             private_token='ffffffffffffffffffffffffffffffff',
             public_token='eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
             position_x=4.44,
@@ -678,7 +679,7 @@ class RegenerateTokenViewTests(TestCase):
         self.test_server.save()
 
 
-class GetServerStatusViewTests(TestCase):
+class GetServerStatusViewTests(LiveServerTestCase):
     def setUp(self):
         self.token_types = ['auth', 'public', 'both']
         self.username = 'test_user'
@@ -697,7 +698,7 @@ class GetServerStatusViewTests(TestCase):
             region=first_region,
             owner=first_agent,
             user=self.user,
-            address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore',
+            address=self.live_server_url + reverse('server:debug_confirm', kwargs={'server_name': 'server1'}),
             private_token=self.private_token,
             public_token=self.public_token,
             position_x=4.44,
@@ -715,7 +716,7 @@ class GetServerStatusViewTests(TestCase):
             region=first_region,
             owner=first_agent,
             user=self.user,
-            address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_offline?ignore',
+            address=self.live_server_url + '/some/unknown/url',
             private_token=self.private_token_offline,
             public_token=self.public_token_offline,
             position_x=4.44,
@@ -741,7 +742,7 @@ class GetServerStatusViewTests(TestCase):
             self.assertTrue(is_json_error(response.json()))
 
 
-class CreateProxyViewTests(TestCase):
+class CreateProxyViewTests(LiveServerTestCase):
     def setUp(self):
         self.token_types = ['auth', 'public', 'both']
         self.username = 'test_user'
@@ -760,7 +761,7 @@ class CreateProxyViewTests(TestCase):
             region=first_region,
             owner=first_agent,
             user=self.user,
-            address='https://dl.dropboxusercontent.com/u/50597639/server/loopback_1_ok?ignore',
+            address=self.live_server_url + reverse('server:debug_confirm', kwargs={'server_name': 'server1'}),
             private_token=self.private_token,
             public_token=self.public_token,
             position_x=4.44,
