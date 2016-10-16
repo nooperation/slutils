@@ -9,11 +9,11 @@ pattern_public_token = '(?P<public_token>[a-f0-9]{32})'
 
 urlpatterns = [
     url(r'^$', views.IndexView.as_view(), name='index'),
-    url(r'^debug/proxy/(?P<server_name>[^/]+)/(?P<user_query>.*)$', views.DebugProxyView.as_view(), name='debug_proxy'),
+    url(r'^debug/proxy/(?P<server_name>[^/]+)/(?P<user_query>.*)?', views.DebugProxyView.as_view(), name='debug_proxy'),
     url(r'^debug/confirm/(?P<server_name>.+)$', views.DebugConfirmView.as_view(), name='debug_confirm'),
     url(r'^register/$', views.RegisterView.as_view(), name='register'),
     url(r'^update/$', views.UpdateView.as_view(), name='update'),
-    url(r'^proxy/(?P<proxy_name>[^/]+)/(?P<user_query>.*)', views.ProxyView.as_view(), name='proxy'),
+    url(r'^proxy/(?P<proxy_name>[^/]+)/(?P<user_query>.*)?', views.ProxyView.as_view(), name='proxy'),
     url(r'^create_proxy/$', views.CreateProxyView.as_view(), name='create_proxy'),
     url(r'^{}/$'.format(pattern_public_token), views.ServerView.as_view(), name='view'),
     url(r'^{}/confirm/$'.format(pattern_private_token), views.ConfirmView.as_view(), name='confirm'),

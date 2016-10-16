@@ -1,3 +1,4 @@
+import requests
 from django.test import LiveServerTestCase
 from django.test import TransactionTestCase, TestCase
 from django.db import IntegrityError
@@ -750,6 +751,8 @@ class CreateProxyViewTests(LiveServerTestCase):
         self.user = User.objects.create_user(username=self.username, email='jdoe@example.com', password=self.password)
         self.private_token = '11111111111111111111111111111111'
         self.public_token = '10101010101010101010101010101010'
+        self.private_token2 = '22222222222222222222222222222222'
+        self.public_token2 = '20202020202020202020202020202020'
         first_shard = Shard.objects.create(name='Shard A')
         first_region = Region.objects.create(name='Region A', shard=first_shard)
         first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
@@ -761,9 +764,25 @@ class CreateProxyViewTests(LiveServerTestCase):
             region=first_region,
             owner=first_agent,
             user=self.user,
-            address=self.live_server_url + reverse('server:debug_confirm', kwargs={'server_name': 'server1'}),
+            address=self.live_server_url + reverse('server:debug_proxy', kwargs={'server_name': 'server1'}),
             private_token=self.private_token,
             public_token=self.public_token,
+            position_x=4.44,
+            position_y=5.55,
+            position_z=6.66,
+            enabled=False
+        )
+        self.test_server2 = Server.objects.create(
+            object_key='00000000-0000-0000-0000-000000000002',
+            object_name='Server B',
+            type=Server.TYPE_DEFAULT,
+            shard=first_shard,
+            region=first_region,
+            owner=first_agent,
+            user=self.user,
+            address=self.live_server_url + reverse('server:debug_proxy', kwargs={'server_name': 'server2'}),
+            private_token=self.private_token2,
+            public_token=self.public_token2,
             position_x=4.44,
             position_y=5.55,
             position_z=6.66,
@@ -773,11 +792,141 @@ class CreateProxyViewTests(LiveServerTestCase):
     def test_normal_usage(self):
         self.client.login(username=self.username, password=self.password)
 
+        response = self.client.post(reverse('server:create_proxy'), {
+            'public_token': self.public_token,
+            'proxy_name': 'test_proxy'
+        })
+
+        self.assertTrue(is_json_success(response.json()))
+
+        new_proxy = ServerProxy.objects.get(proxy_name='test_proxy')
+        self.assertEqual(new_proxy.proxy_name, 'test_proxy')
+        self.assertEqual(new_proxy.server, self.test_server)
+        self.assertIsNone(new_proxy.forced_path)
+        self.assertFalse(new_proxy.allow_user_query)
+
+        response = self.client.post(reverse('server:create_proxy'), {
+            'public_token': self.public_token2,
+            'proxy_name': 'test_proxy2',
+            'forced_path': '/forced',
+            'allow_user_query': True
+        })
+
+        new_proxy = ServerProxy.objects.get(proxy_name='test_proxy2')
+        self.assertTrue(is_json_success(response.json()))
+        self.assertEqual(new_proxy.proxy_name, 'test_proxy2')
+        self.assertEqual(new_proxy.server, self.test_server2)
+        self.assertEqual(new_proxy.forced_path, '/forced')
+        self.assertTrue(new_proxy.allow_user_query)
+
+    def test_duplicate_proxy(self):
+        self.client.login(username=self.username, password=self.password)
+
+        # Success
         response = self.client.post(reverse('server:create_proxy'), {'public_token': self.public_token, 'proxy_name': 'test_proxy'})
         self.assertTrue(is_json_success(response.json()))
 
-        first_proxy = ServerProxy.objects.first()
-        self.assertEqual(first_proxy.proxy_name, 'test_proxy')
-        self.assertEqual(first_proxy.server, self.test_server)
-        self.assertIsNone(first_proxy.forced_path)
-        self.assertFalse(first_proxy.allow_user_query)
+        # Duplicate proxy name (violation) and public token
+        response = self.client.post(reverse('server:create_proxy'), {'public_token': self.public_token, 'proxy_name': 'test_proxy'})
+        self.assertTrue(is_json_error(response.json()))
+
+        # Duplicate proxy name (violation)
+        response = self.client.post(reverse('server:create_proxy'), {'public_token': self.public_token2, 'proxy_name': 'test_proxy'})
+        self.assertTrue(is_json_error(response.json()))
+
+
+class ProxyView(LiveServerTestCase):
+    def setUp(self):
+        self.token_types = ['auth', 'public', 'both']
+        self.username = 'test_user'
+        self.password = 'asdf'
+        self.user = User.objects.create_user(username=self.username, email='jdoe@example.com', password=self.password)
+        self.private_token = '11111111111111111111111111111111'
+        self.public_token = '10101010101010101010101010101010'
+        first_shard = Shard.objects.create(name='Shard A')
+        first_region = Region.objects.create(name='Region A', shard=first_shard)
+        first_agent = Agent.objects.create(name='First Agent', uuid='41f94400-2a3e-408a-9b80-1774724f62af', shard=first_shard)
+        self.test_server = Server.objects.create(
+            object_key='00000000-0000-0000-0000-000000000001',
+            object_name='Server A',
+            type=Server.TYPE_DEFAULT,
+            shard=first_shard,
+            region=first_region,
+            owner=first_agent,
+            user=self.user,
+            address=self.live_server_url + reverse('server:debug_proxy', kwargs={'server_name': 'Server A'}),
+            private_token=self.private_token,
+            public_token=self.public_token,
+            position_x=4.44,
+            position_y=5.55,
+            position_z=6.66,
+            enabled=False
+        )
+
+    def test_proxy_default(self):
+        """
+        No forced path. No user query.
+        """
+        test_server_proxy = ServerProxy.objects.create(
+            proxy_name='test_server_proxy',
+            server=self.test_server
+        )
+        response = self.client.get(reverse('server:proxy', kwargs={
+            'proxy_name': test_server_proxy.proxy_name,
+            'user_query': 'Custom'
+        }))
+        self.assertEqual(response.json(), {
+            'path': reverse('server:debug_proxy', kwargs={'server_name': test_server_proxy.server.object_name})
+        })
+
+    def test_proxy_userquery(self):
+        """
+        No forced path. Yes user query.
+        """
+        test_server_proxy = ServerProxy.objects.create(
+            proxy_name='test_server_proxy',
+            server=self.test_server,
+            allow_user_query=True
+        )
+        response = self.client.get(reverse('server:proxy', kwargs={
+            'proxy_name': test_server_proxy.proxy_name,
+            'user_query': 'Custom'
+        }))
+        self.assertEqual(response.json(), {
+            'path': reverse('server:debug_proxy', kwargs={'server_name': test_server_proxy.server.object_name}) + 'Custom'
+        })
+
+    def test_proxy_forced_address(self):
+        """
+        Yes forced path. No user query.
+        """
+        test_server_proxy = ServerProxy.objects.create(
+            proxy_name='test_server_proxy',
+            server=self.test_server,
+            forced_path='?path=/Map/',
+        )
+        response = self.client.get(reverse('server:proxy', kwargs={
+            'proxy_name': test_server_proxy.proxy_name,
+            'user_query': 'Custom'
+        }))
+        self.assertEqual(response.json(), {
+            'path': reverse('server:debug_proxy', kwargs={'server_name': test_server_proxy.server.object_name}) + '?path=/Map/'
+        })
+
+    def test_proxy_forced_address_and_userquery(self):
+        """
+        Yes forced path. Yes user query.
+        """
+        test_server_proxy = ServerProxy.objects.create(
+            proxy_name='test_server_proxy',
+            server=self.test_server,
+            forced_path='?path=/Map/',
+            allow_user_query=True
+        )
+        response = self.client.get(reverse('server:proxy', kwargs={
+            'proxy_name': test_server_proxy.proxy_name,
+            'user_query': 'Custom'
+        }))
+        self.assertEqual(response.json(), {
+            'path': reverse('server:debug_proxy', kwargs={'server_name': test_server_proxy.server.object_name}) + '?path=/Map/Custom'
+        })

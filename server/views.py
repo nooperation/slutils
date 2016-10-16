@@ -1,3 +1,4 @@
+from django.db import IntegrityError
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render
 from django.views import generic
@@ -309,6 +310,11 @@ class CreateProxyView(LoginRequiredMixin, generic.View):
         except ServerProxy.MultipleObjectsReturned:
             logging.exception("Multiple objects returned")
             return JsonResponse(json_error('Multiple servers contain the same token'))
+        except IntegrityError:
+            return JsonResponse(json_error('Proxy name already exists'))
+        except Exception as ex:
+            logging.exception("CreateProxyView error: " + str(ex))
+            return JsonResponse(json_error('Error'))
 
         return JsonResponse(json_success(server_proxy.proxy_name + (server_proxy.forced_path or "")))
 
@@ -324,7 +330,7 @@ class ProxyView(generic.View):
             return JsonResponse(json_error('Multiple proxies with the same name'))
 
         try:
-            full_path = server_proxy.server.address + "?path=/"
+            full_path = server_proxy.server.address
             if server_proxy.forced_path is not None:
                 full_path = full_path + server_proxy.forced_path
             if server_proxy.allow_user_query:
@@ -345,5 +351,5 @@ class DebugConfirmView(generic.View):
 
 
 class DebugProxyView(generic.View):
-    def get(self, request, user_query):
-        return HttpResponse('OK.')
+    def get(self, request, server_name, user_query):
+        return JsonResponse({'path': request.get_full_path()})
